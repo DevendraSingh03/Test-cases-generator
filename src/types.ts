@@ -39,5 +39,5 @@ export interface JiraConfig {
   email: string;
 }
 
-export type DesignBy = "Jira ID" | "Release Name";
+export type DesignBy = "Jira ID" | "Release Name" | "Manual Input";
 export type GenerationMode = "Normal" | "RAG" | "Agent";

@@ -53,6 +53,11 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [storyDetails, setStoryDetails] = useState<any | null>(null);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
+  const [manualTitle, setManualTitle] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
   
   // Theme & Jira Config
   const [accentColor, setAccentColor] = useState("#3b82f6"); // Default Blue
@@ -66,15 +71,15 @@ export default function App() {
     document.documentElement.style.setProperty('--accent-color', accentColor);
   }, [accentColor]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!jiraId || !fixVersion || !projectName) {
-      setError("Please fill in all fields");
+  const handleFetchDetails = async () => {
+    if (!jiraId) {
+      setError("Please enter a Jira ID first");
       return;
     }
 
-    setLoading(true);
+    setFetchingDetails(true);
     setError(null);
+    setStoryDetails(null);
 
     try {
       const headers: Record<string, string> = {
@@ -92,10 +97,69 @@ export default function App() {
         const errData = await res.json();
         throw new Error(errData.error || "Failed to fetch user story data");
       }
-      const userStoryData = await res.json();
+      const data = await res.json();
+      setStoryDetails(data);
+      // Auto-fill project and version if available
+      if (data.project) setProjectName(data.project);
+      if (data.version && data.version !== "N/A") setFixVersion(data.version);
+    } catch (err: any) {
+      setError(err.message || "Failed to fetch story details");
+    } finally {
+      setFetchingDetails(false);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (designBy === "Manual Input") {
+      if (!manualTitle || !manualDescription || !fixVersion || !projectName) {
+        setError("Please fill in all fields for manual input");
+        return;
+      }
+    } else {
+      if (!jiraId || !fixVersion || !projectName) {
+        setError("Please fill in all fields");
+        return;
+      }
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      let userStoryData = storyDetails;
+
+      if (designBy === "Manual Input") {
+        userStoryData = {
+          id: "MANUAL",
+          title: manualTitle,
+          description: manualDescription,
+          acceptanceCriteria: [],
+          project: projectName,
+          version: fixVersion
+        };
+      } else if (!userStoryData || userStoryData.id !== jiraId) {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+
+        if (jiraConfig.apiToken && jiraConfig.domain && jiraConfig.email) {
+          headers['x-jira-api-token'] = jiraConfig.apiToken;
+          headers['x-jira-domain'] = jiraConfig.domain;
+          headers['x-jira-email'] = jiraConfig.email;
+        }
+
+        const res = await fetch(`/api/user-story/${jiraId}`, { headers });
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(errData.error || "Failed to fetch user story data");
+        }
+        userStoryData = await res.json();
+      }
 
       const generationResult = await generateTestDesign(
-        jiraId,
+        designBy === "Manual Input" ? "MANUAL" : jiraId,
         fixVersion,
         projectName,
         userStoryData,
@@ -122,36 +186,36 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] font-sans text-zinc-400 selection:bg-zinc-700 selection:text-white overflow-x-hidden">
+    <div className="min-h-screen bg-[#FDFDFD] font-sans text-zinc-600 selection:bg-zinc-200 selection:text-zinc-900 overflow-x-hidden">
       {/* Immersive Background */}
       <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
         <div 
-          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-20 transition-all duration-1000"
+          className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-10 transition-all duration-1000"
           style={{ backgroundColor: accentColor }}
         ></div>
         <div 
-          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[150px] opacity-10 transition-all duration-1000"
+          className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full blur-[150px] opacity-[0.05] transition-all duration-1000"
           style={{ backgroundColor: accentColor }}
         ></div>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] brightness-100 contrast-150"></div>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02] brightness-0 contrast-150"></div>
       </div>
 
       {/* Header */}
-      <header className="relative z-50 bg-black/20 backdrop-blur-md border-b border-white/5 px-12 py-6 flex items-center justify-between">
+      <header className="relative z-50 bg-white/70 backdrop-blur-md border-b border-zinc-200 px-12 py-6 flex items-center justify-between">
         <div className="flex items-center gap-5">
           <div 
-            className="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-700 rotate-3 hover:rotate-0"
-            style={{ backgroundColor: `${accentColor}10`, borderColor: `${accentColor}30` }}
+            className="w-12 h-12 rounded-2xl flex items-center justify-center border transition-all duration-700 rotate-3 hover:rotate-0 shadow-sm"
+            style={{ backgroundColor: `${accentColor}05`, borderColor: `${accentColor}20` }}
           >
             <Cpu className="w-6 h-6" style={{ color: accentColor }} />
           </div>
           <div>
-            <h1 className="text-2xl font-serif italic text-white tracking-tight">
-              Test Cases <span className="text-zinc-600 font-light not-italic">Generator</span>
+            <h1 className="text-2xl font-serif italic text-zinc-900 tracking-tight">
+              Test Cases <span className="text-zinc-400 font-light not-italic">Generator</span>
             </h1>
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accentColor }}></span>
-              <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-500 font-black">Autonomous Intelligence Suite</p>
+              <p className="text-[9px] uppercase tracking-[0.3em] text-zinc-400 font-black">Autonomous Intelligence Suite</p>
             </div>
           </div>
         </div>
@@ -160,13 +224,23 @@ export default function App() {
           {view === "results" && (
             <button 
               onClick={() => setView("input")}
-              className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] font-black text-zinc-500 hover:text-white transition-all group"
+              className="flex items-center gap-3 text-[10px] uppercase tracking-[0.2em] font-black text-zinc-400 hover:text-zinc-900 transition-all group"
             >
               <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
               New Analysis
             </button>
           )}
-          <div className="h-8 w-px bg-white/5"></div>
+          <div className="h-8 w-px bg-zinc-200"></div>
+          
+          <button
+            onClick={() => setShowSettings(true)}
+            className="flex items-center gap-3 px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-[10px] uppercase tracking-widest font-black text-zinc-500 hover:bg-zinc-100 transition-all"
+          >
+            <Settings className="w-4 h-4" />
+            Jira Settings
+          </button>
+
+          <div className="h-8 w-px bg-zinc-200"></div>
           <div className="flex items-center gap-3">
             {ACCENT_COLORS.map((color) => (
               <button
@@ -174,7 +248,7 @@ export default function App() {
                 onClick={() => setAccentColor(color.value)}
                 className={cn(
                   "w-4 h-4 rounded-full transition-all hover:scale-125 border-2",
-                  accentColor === color.value ? "border-white scale-125 shadow-[0_0_15px_rgba(255,255,255,0.3)]" : "border-transparent opacity-40 hover:opacity-100"
+                  accentColor === color.value ? "border-zinc-300 scale-125 shadow-md" : "border-transparent opacity-40 hover:opacity-100"
                 )}
                 style={{ backgroundColor: color.value }}
                 title={color.name}
@@ -197,76 +271,53 @@ export default function App() {
             >
               {/* Left Column: Configuration & Settings */}
               <div className="lg:col-span-4 space-y-8">
-                <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 backdrop-blur-sm">
+                <div className="bg-white border border-zinc-200 rounded-[2rem] p-8 shadow-sm">
                   <div className="flex items-center justify-between mb-8">
-                    <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-zinc-500">Jira Configuration</h3>
-                    <div className="px-2 py-1 rounded bg-white/5 border border-white/10 text-[8px] font-black text-zinc-400 uppercase tracking-widest">Secure</div>
+                    <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-zinc-400">Analysis Overview</h3>
+                    <div className="px-2 py-1 rounded bg-zinc-50 border border-zinc-100 text-[8px] font-black text-zinc-500 uppercase tracking-widest">Active</div>
                   </div>
                   
                   <div className="space-y-6">
-                    <div className="space-y-2">
-                      <label className="text-[9px] uppercase tracking-widest text-zinc-600 font-bold ml-1">Atlassian Domain</label>
-                      <div className="relative group">
-                        <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 group-focus-within:text-zinc-400 transition-colors" />
-                        <input 
-                          type="text"
-                          placeholder="company.atlassian.net"
-                          value={jiraConfig.domain}
-                          onChange={(e) => setJiraConfig({ ...jiraConfig, domain: e.target.value })}
-                          className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-sm text-zinc-200 placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all"
-                        />
+                    <div className="p-6 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center">
+                          <Zap className="w-4 h-4" style={{ color: accentColor }} />
+                        </div>
+                        <span className="text-[10px] uppercase tracking-widest font-black text-zinc-900">Neural Engine</span>
                       </div>
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                        Utilizing advanced reasoning models to decompose complex requirements into verifiable test protocols.
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] uppercase tracking-widest text-zinc-600 font-bold ml-1">Authorized Email</label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 group-focus-within:text-zinc-400 transition-colors" />
-                        <input 
-                          type="email"
-                          placeholder="qa-lead@company.com"
-                          value={jiraConfig.email}
-                          onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
-                          className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-sm text-zinc-200 placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all"
-                        />
+
+                    <div className="p-6 rounded-2xl bg-zinc-50 border border-zinc-100 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-white border border-zinc-200 flex items-center justify-center">
+                          <ShieldCheck className="w-4 h-4" style={{ color: accentColor }} />
+                        </div>
+                        <span className="text-[10px] uppercase tracking-widest font-black text-zinc-900">Quality Assurance</span>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[9px] uppercase tracking-widest text-zinc-600 font-bold ml-1">API Access Token</label>
-                      <div className="relative group">
-                        <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 group-focus-within:text-zinc-400 transition-colors" />
-                        <input 
-                          type="password"
-                          placeholder="••••••••••••••••"
-                          value={jiraConfig.apiToken}
-                          onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
-                          className="w-full pl-12 pr-4 py-4 bg-black/40 border border-white/5 rounded-2xl text-sm text-zinc-200 placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-8 pt-8 border-t border-white/5">
-                    <div className="flex items-center gap-3 text-[9px] text-zinc-600 leading-relaxed italic">
-                      <ShieldCheck className="w-4 h-4 shrink-0" />
-                      <p>Credentials are processed in-memory and never persisted to external storage.</p>
+                      <p className="text-[11px] text-zinc-500 leading-relaxed">
+                        Automated edge-case discovery ensures maximum coverage across positive and negative user flows.
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white/[0.01] border border-white/5 rounded-[2rem] p-8">
-                  <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-zinc-500 mb-6">System Status</h3>
+                <div className="bg-zinc-50/50 border border-zinc-100 rounded-[2rem] p-8">
+                  <h3 className="text-[10px] uppercase tracking-[0.3em] font-black text-zinc-400 mb-6">System Status</h3>
                   <div className="space-y-4">
                     <div className="flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-zinc-600">AI Engine</span>
-                      <span className="text-emerald-500">Gemini 3.1 Pro</span>
+                      <span className="text-zinc-400">AI Engine</span>
+                      <span className="text-emerald-600">Gemini 3.1 Pro</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-zinc-600">Latency</span>
-                      <span className="text-zinc-400">~1.2s</span>
+                      <span className="text-zinc-400">Latency</span>
+                      <span className="text-zinc-500">~1.2s</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] font-bold">
-                      <span className="text-zinc-600">Security</span>
-                      <span className="text-zinc-400">AES-256 Encrypted</span>
+                      <span className="text-zinc-400">Security</span>
+                      <span className="text-zinc-500">AES-256 Encrypted</span>
                     </div>
                   </div>
                 </div>
@@ -274,16 +325,16 @@ export default function App() {
 
               {/* Right Column: Main Input Form */}
               <div className="lg:col-span-8">
-                <div className="bg-white/[0.03] border border-white/10 rounded-[3rem] p-12 backdrop-blur-xl shadow-2xl shadow-black relative overflow-hidden">
+                <div className="bg-white border border-zinc-200 rounded-[3rem] p-12 shadow-xl shadow-zinc-200/50 relative overflow-hidden">
                   <div 
-                    className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[150px] opacity-10 transition-colors duration-1000"
+                    className="absolute -top-24 -right-24 w-96 h-96 rounded-full blur-[150px] opacity-[0.05] transition-colors duration-1000"
                     style={{ backgroundColor: accentColor }}
                   ></div>
 
                   <div className="relative z-10 mb-12">
-                    <h2 className="text-6xl font-serif text-white mb-4 tracking-tight leading-tight">
+                    <h2 className="text-6xl font-serif text-zinc-900 mb-4 tracking-tight leading-tight">
                       Architect Your <br />
-                      <span className="italic text-zinc-500 font-light">Test Strategy</span>
+                      <span className="italic text-zinc-400 font-light">Test Strategy</span>
                     </h2>
                     <p className="text-zinc-500 text-lg font-light max-w-xl">
                       Leverage advanced neural reasoning to transform user stories into comprehensive, enterprise-grade test suites.
@@ -294,9 +345,9 @@ export default function App() {
                     {/* Methodology & Mode Selector */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
                       <div className="space-y-6">
-                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 font-black block">Analysis Method</label>
+                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Analysis Method</label>
                         <div className="grid grid-cols-1 gap-3">
-                          {(["Jira ID", "Release Name"] as DesignBy[]).map((option) => (
+                          {(["Jira ID", "Release Name", "Manual Input"] as DesignBy[]).map((option) => (
                             <button 
                               key={option}
                               type="button"
@@ -304,20 +355,22 @@ export default function App() {
                               className={cn(
                                 "flex items-center gap-4 p-5 rounded-2xl border transition-all text-left group",
                                 designBy === option 
-                                  ? "bg-white/5 text-white shadow-xl" 
-                                  : "bg-transparent border-white/5 text-zinc-600 hover:border-white/10 hover:text-zinc-400"
+                                  ? "bg-zinc-50 text-zinc-900 shadow-sm" 
+                                  : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
                               )}
                               style={{ borderColor: designBy === option ? accentColor : undefined }}
                             >
-                              <div className="p-3 rounded-xl bg-black/40 border border-white/5 group-hover:border-white/10 transition-colors">
+                              <div className="p-3 rounded-xl bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
                                 {option === "Jira ID" && <Search className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
                                 {option === "Release Name" && <Layers className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
+                                {option === "Manual Input" && <FileText className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
                               </div>
                               <div className="flex flex-col">
                                 <span className="text-[10px] uppercase tracking-widest font-black">{option}</span>
-                                <span className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest mt-1">
+                                <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
                                   {option === "Jira ID" && "Fetch from Atlassian Cloud"}
                                   {option === "Release Name" && "Bulk Release Analysis"}
+                                  {option === "Manual Input" && "Direct Story Specification"}
                                 </span>
                               </div>
                             </button>
@@ -326,7 +379,7 @@ export default function App() {
                       </div>
 
                       <div className="space-y-6">
-                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-600 font-black block">Intelligence Mode</label>
+                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Intelligence Mode</label>
                         <div className="grid grid-cols-1 gap-3">
                           {(["Normal", "RAG", "Agent"] as GenerationMode[]).map((mode) => (
                             <button 
@@ -336,20 +389,20 @@ export default function App() {
                               className={cn(
                                 "flex items-center justify-between p-5 rounded-2xl border transition-all group",
                                 genMode === mode 
-                                  ? "bg-white/5 text-white shadow-xl" 
-                                  : "bg-transparent border-white/5 text-zinc-600 hover:border-white/10 hover:text-zinc-400"
+                                  ? "bg-zinc-50 text-zinc-900 shadow-sm" 
+                                  : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
                               )}
                               style={{ borderColor: genMode === mode ? accentColor : undefined }}
                             >
                               <div className="flex items-center gap-4">
-                                <div className="p-3 rounded-xl bg-black/40 border border-white/5 group-hover:border-white/10 transition-colors">
+                                <div className="p-3 rounded-xl bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
                                   {mode === "Normal" && <Sparkles className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
                                   {mode === "RAG" && <Database className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
                                   {mode === "Agent" && <Cpu className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
                                 </div>
                                 <div className="text-left">
                                   <span className="text-[10px] uppercase tracking-widest font-black block">{mode} Generation</span>
-                                  <span className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest">
+                                  <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
                                     {mode === "Normal" && "Standard Enterprise QA"}
                                     {mode === "RAG" && "Context-Aware Precision"}
                                     {mode === "Agent" && "Autonomous Edge-Case Discovery"}
@@ -358,8 +411,8 @@ export default function App() {
                               </div>
                               <div className={cn(
                                 "w-2 h-2 rounded-full transition-all duration-500",
-                                genMode === mode ? "scale-125 shadow-[0_0_10px_rgba(255,255,255,0.5)]" : "opacity-20"
-                              )} style={{ backgroundColor: genMode === mode ? accentColor : 'white' }}></div>
+                                genMode === mode ? "scale-125 shadow-sm" : "opacity-20"
+                              )} style={{ backgroundColor: genMode === mode ? accentColor : 'zinc' }}></div>
                             </button>
                           ))}
                         </div>
@@ -368,34 +421,89 @@ export default function App() {
 
                     {/* Form Inputs */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {designBy === "Manual Input" ? (
+                        <>
+                          <div className="space-y-3 md:col-span-2">
+                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Title</label>
+                            <input 
+                              type="text"
+                              placeholder="e.g., Implement OAuth2 Authentication Flow"
+                              value={manualTitle}
+                              onChange={(e) => setManualTitle(e.target.value)}
+                              className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
+                            />
+                          </div>
+                          <div className="space-y-3 md:col-span-2">
+                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Description / Requirements</label>
+                            <textarea 
+                              placeholder="Paste detailed requirements, acceptance criteria, or user story description here..."
+                              value={manualDescription}
+                              onChange={(e) => setManualDescription(e.target.value)}
+                              className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm min-h-[200px] resize-none"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-3 md:col-span-2">
+                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Jira Identifier</label>
+                            <div className="flex gap-4">
+                              <input 
+                                type="text"
+                                placeholder="JIRA-925"
+                                value={jiraId}
+                                onChange={(e) => setJiraId(e.target.value)}
+                                className="flex-1 px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono text-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleFetchDetails}
+                                disabled={fetchingDetails || !jiraId}
+                                className="px-8 py-5 rounded-2xl border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-300 font-black text-[10px] uppercase tracking-[0.2em] transition-all disabled:opacity-50 flex items-center gap-3 shadow-sm"
+                              >
+                                {fetchingDetails ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                Fetch Details
+                              </button>
+                            </div>
+                          </div>
+
+                          {storyDetails && (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              className="md:col-span-2 bg-zinc-50 border border-zinc-100 rounded-2xl p-6 space-y-4"
+                            >
+                              <div className="flex items-center justify-between">
+                                <h4 className="text-[10px] uppercase tracking-widest font-black text-zinc-400">Retrieved Story Details</h4>
+                                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded">Sync Successful</span>
+                              </div>
+                              <div className="space-y-2">
+                                <p className="text-zinc-900 font-serif italic text-lg">{storyDetails.title}</p>
+                                <p className="text-zinc-500 text-xs line-clamp-2 leading-relaxed">{storyDetails.description}</p>
+                              </div>
+                            </motion.div>
+                          )}
+                        </>
+                      )}
+
                       <div className="space-y-3">
-                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-black ml-1">Jira Identifier</label>
-                        <input 
-                          type="text"
-                          placeholder="JIRA-925"
-                          value={jiraId}
-                          onChange={(e) => setJiraId(e.target.value)}
-                          className="w-full px-6 py-5 rounded-2xl border border-white/5 bg-black/40 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-black ml-1">Release Version</label>
+                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Release Version</label>
                         <input 
                           type="text"
                           placeholder="v2.4.0-Stable"
                           value={fixVersion}
                           onChange={(e) => setFixVersion(e.target.value)}
-                          className="w-full px-6 py-5 rounded-2xl border border-white/5 bg-black/40 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all font-mono text-sm"
+                          className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono text-sm"
                         />
                       </div>
-                      <div className="space-y-3 md:col-span-2">
-                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-600 font-black ml-1">Project Designation</label>
+                      <div className="space-y-3">
+                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Project Designation</label>
                         <input 
                           type="text"
                           placeholder="Global Infrastructure Systems"
                           value={projectName}
                           onChange={(e) => setProjectName(e.target.value)}
-                          className="w-full px-6 py-5 rounded-2xl border border-white/5 bg-black/40 text-white placeholder:text-zinc-800 focus:outline-none focus:border-white/20 transition-all text-sm"
+                          className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
                         />
                       </div>
                     </div>
@@ -404,7 +512,7 @@ export default function App() {
                       <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-center gap-4 text-red-400 bg-red-950/10 p-6 rounded-3xl border border-red-900/20"
+                        className="flex items-center gap-4 text-red-600 bg-red-50 p-6 rounded-3xl border border-red-100"
                       >
                         <AlertCircle className="w-5 h-5 shrink-0" />
                         <p className="text-xs font-bold uppercase tracking-widest">{error}</p>
@@ -414,10 +522,10 @@ export default function App() {
                     <button 
                       type="submit"
                       disabled={loading}
-                      className="w-full h-20 rounded-3xl text-black font-black uppercase tracking-[0.4em] text-xs transition-all flex items-center justify-center gap-4 group relative overflow-hidden shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full h-20 rounded-3xl text-white font-black uppercase tracking-[0.4em] text-xs transition-all flex items-center justify-center gap-4 group relative overflow-hidden shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: accentColor }}
                     >
-                      <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
+                      <div className="absolute inset-0 bg-black/10 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
                       <span className="relative z-10">
                         {loading ? "Processing Neural Logic..." : "Initialize Generation"}
                       </span>
@@ -439,20 +547,20 @@ export default function App() {
               exit={{ opacity: 0 }}
               className="space-y-20"
             >
-              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 border-b border-white/5 pb-12">
+              <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 border-b border-zinc-200 pb-12">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-[9px] font-black text-zinc-500 uppercase tracking-[0.3em]">Analysis Complete</span>
-                    <div className="h-px w-12 bg-white/10"></div>
-                    <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">{genMode} Mode</span>
+                    <span className="px-3 py-1 rounded-full bg-zinc-50 border border-zinc-100 text-[9px] font-black text-zinc-400 uppercase tracking-[0.3em]">Analysis Complete</span>
+                    <div className="h-px w-12 bg-zinc-100"></div>
+                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-[0.3em]">{genMode} Mode</span>
                   </div>
-                  <h2 className="text-7xl font-serif text-white tracking-tighter leading-none">
+                  <h2 className="text-7xl font-serif text-zinc-900 tracking-tighter leading-none">
                     Intelligence <br />
-                    <span className="italic text-zinc-600 font-light">Report</span>
+                    <span className="italic text-zinc-400 font-light">Report</span>
                   </h2>
                   <div className="flex flex-wrap gap-3">
                     {[jiraId, projectName, fixVersion].map((meta, i) => (
-                      <span key={i} className="flex items-center gap-3 bg-white/[0.02] px-5 py-2.5 rounded-2xl border border-white/5 text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                      <span key={i} className="flex items-center gap-3 bg-zinc-50 px-5 py-2.5 rounded-2xl border border-zinc-100 text-[10px] font-black uppercase tracking-widest text-zinc-500">
                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
                         {meta}
                       </span>
@@ -463,14 +571,14 @@ export default function App() {
                   <button 
                     onClick={handleRegenerate}
                     disabled={loading}
-                    className="flex items-center gap-4 px-8 py-4 rounded-2xl border border-white/5 bg-white/[0.02] text-zinc-500 hover:text-white hover:border-white/20 font-black text-[10px] uppercase tracking-[0.3em] transition-all disabled:opacity-50"
+                    className="flex items-center gap-4 px-8 py-4 rounded-2xl border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-300 font-black text-[10px] uppercase tracking-[0.3em] transition-all disabled:opacity-50 shadow-sm"
                   >
                     <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
                     Re-Analyze
                   </button>
                   <button 
                     onClick={handleExport}
-                    className="flex items-center gap-4 px-8 py-4 rounded-2xl text-black font-black text-[10px] uppercase tracking-[0.3em] shadow-2xl shadow-black/50 transition-all hover:scale-105 active:scale-95"
+                    className="flex items-center gap-4 px-8 py-4 rounded-2xl text-white font-black text-[10px] uppercase tracking-[0.3em] shadow-lg transition-all hover:scale-105 active:scale-95"
                     style={{ backgroundColor: accentColor }}
                   >
                     <Download className="w-4 h-4" />
@@ -482,8 +590,8 @@ export default function App() {
               {/* Scenarios Section */}
               <section className="space-y-12">
                 <div className="flex items-center gap-6">
-                  <h3 className="text-[11px] uppercase tracking-[0.5em] font-black text-zinc-600 whitespace-nowrap">Test Scenarios</h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent"></div>
+                  <h3 className="text-[11px] uppercase tracking-[0.5em] font-black text-zinc-400 whitespace-nowrap">Test Scenarios</h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-zinc-200 to-transparent"></div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -494,31 +602,31 @@ export default function App() {
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.05 }}
-                      className="group bg-white/[0.02] border border-white/5 p-8 rounded-[2.5rem] hover:border-white/10 transition-all flex gap-8 relative overflow-hidden"
+                      className="group bg-white border border-zinc-100 p-8 rounded-[2.5rem] hover:border-zinc-200 transition-all flex gap-8 relative overflow-hidden shadow-sm"
                     >
                       <div 
                         className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-0 group-hover:opacity-10 transition-opacity duration-700"
                         style={{ backgroundColor: accentColor }}
                       ></div>
                       
-                      <div className="flex flex-col items-center justify-center w-20 h-20 bg-black/40 rounded-3xl border border-white/5 shrink-0 group-hover:border-white/20 transition-all">
-                        <span className="text-[9px] font-black text-zinc-600 leading-none mb-1 uppercase tracking-widest">ID</span>
-                        <span className="text-base font-mono font-bold text-white">{s.scenarioId}</span>
+                      <div className="flex flex-col items-center justify-center w-20 h-20 bg-zinc-50 rounded-3xl border border-zinc-100 shrink-0 group-hover:border-zinc-200 transition-all">
+                        <span className="text-[9px] font-black text-zinc-400 leading-none mb-1 uppercase tracking-widest">ID</span>
+                        <span className="text-base font-mono font-bold text-zinc-900">{s.scenarioId}</span>
                       </div>
                       <div className="flex-1 space-y-3 relative z-10">
                         <div className="flex items-center gap-4 flex-wrap">
-                          <h4 className="text-xl font-serif text-white group-hover:text-zinc-200 transition-colors">{s.scenarioName}</h4>
+                          <h4 className="text-xl font-serif text-zinc-900 group-hover:text-zinc-700 transition-colors">{s.scenarioName}</h4>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className={cn(
                             "text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border",
                             s.classification === "Positive" 
-                              ? "bg-emerald-500/5 border-emerald-500/20 text-emerald-500" 
-                              : "bg-amber-500/5 border-amber-500/20 text-amber-500"
+                              ? "bg-emerald-50 border-emerald-100 text-emerald-600" 
+                              : "bg-amber-50 border-amber-100 text-amber-600"
                           )}>
                             {s.classification}
                           </span>
-                          <span className="text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border border-white/5 text-zinc-600">
+                          <span className="text-[8px] font-black uppercase tracking-[0.2em] px-3 py-1.5 rounded-full border border-zinc-100 text-zinc-400">
                             {s.priority}
                           </span>
                         </div>
@@ -532,8 +640,8 @@ export default function App() {
               {/* Test Cases Section */}
               <section className="space-y-12">
                 <div className="flex items-center gap-6">
-                  <h3 className="text-[11px] uppercase tracking-[0.5em] font-black text-zinc-600 whitespace-nowrap">Detailed Protocols</h3>
-                  <div className="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent"></div>
+                  <h3 className="text-[11px] uppercase tracking-[0.5em] font-black text-zinc-400 whitespace-nowrap">Detailed Protocols</h3>
+                  <div className="h-px flex-1 bg-gradient-to-r from-zinc-200 to-transparent"></div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -544,21 +652,21 @@ export default function App() {
                       whileInView={{ opacity: 1, scale: 1 }}
                       viewport={{ once: true }}
                       transition={{ delay: i * 0.05 }}
-                      className="bg-white/[0.02] border border-white/10 rounded-[3rem] overflow-hidden flex flex-col hover:border-white/20 transition-all shadow-2xl shadow-black/20"
+                      className="bg-white border border-zinc-200 rounded-[3rem] overflow-hidden flex flex-col hover:border-zinc-300 transition-all shadow-md"
                     >
-                      <div className="bg-white/[0.02] px-10 py-8 border-b border-white/5 flex items-center justify-between">
+                      <div className="bg-zinc-50 px-10 py-8 border-b border-zinc-100 flex items-center justify-between">
                         <div className="flex items-center gap-5">
-                          <div className="w-10 h-10 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center text-xs font-mono font-bold text-zinc-400">
+                          <div className="w-10 h-10 rounded-xl bg-white border border-zinc-200 flex items-center justify-center text-xs font-mono font-bold text-zinc-400 shadow-sm">
                             {tc.testId.slice(-3)}
                           </div>
                           <div>
-                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em] block mb-1">{tc.testId}</span>
-                            <h4 className="text-sm font-black text-white uppercase tracking-tight">{tc.name}</h4>
+                            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.3em] block mb-1">{tc.testId}</span>
+                            <h4 className="text-sm font-black text-zinc-900 uppercase tracking-tight">{tc.name}</h4>
                           </div>
                         </div>
                         {tc.automatable === "Y" && (
                           <div 
-                            className="flex items-center gap-2 text-[9px] font-black tracking-[0.3em] bg-white/5 px-4 py-2 rounded-full border border-white/10"
+                            className="flex items-center gap-2 text-[9px] font-black tracking-[0.3em] bg-white px-4 py-2 rounded-full border border-zinc-200"
                             style={{ color: accentColor }}
                           >
                             <Zap className="w-3 h-3 fill-current" />
@@ -570,22 +678,22 @@ export default function App() {
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Execution Protocol</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Execution Protocol</span>
                           </div>
-                          <p className="text-base text-zinc-400 leading-relaxed font-light whitespace-pre-line pl-4 border-l border-white/5">{tc.testSteps}</p>
+                          <p className="text-base text-zinc-600 leading-relaxed font-light whitespace-pre-line pl-4 border-l border-zinc-100">{tc.testSteps}</p>
                         </div>
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">Projected Outcome</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Projected Outcome</span>
                           </div>
-                          <p className="text-base text-zinc-200 font-medium leading-relaxed pl-4 border-l border-white/5">{tc.expectedResult}</p>
+                          <p className="text-zinc-900 font-medium leading-relaxed pl-4 border-l border-zinc-100">{tc.expectedResult}</p>
                         </div>
                       </div>
-                      <div className="px-10 py-6 bg-black/40 border-t border-white/5 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">
+                      <div className="px-10 py-6 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
                         <div className="flex items-center gap-6">
-                          <span>Priority: <span className="text-zinc-400">{tc.priority}</span></span>
-                          <span>Status: <span className="text-zinc-400">{tc.automationStatus}</span></span>
+                          <span>Priority: <span className="text-zinc-600">{tc.priority}</span></span>
+                          <span>Status: <span className="text-zinc-600">{tc.automationStatus}</span></span>
                         </div>
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="w-4 h-4" />
@@ -601,19 +709,119 @@ export default function App() {
         </AnimatePresence>
       </main>
       
-      <footer className="relative z-10 max-w-7xl mx-auto p-12 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-8 text-[10px] uppercase tracking-[0.4em] text-zinc-600 font-black">
+      <footer className="relative z-10 max-w-7xl mx-auto p-12 border-t border-zinc-200 flex flex-col md:flex-row items-center justify-between gap-8 text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black">
         <div className="flex items-center gap-4">
-          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-zinc-50 border border-zinc-100 flex items-center justify-center">
             <Cpu className="w-4 h-4" />
           </div>
           <p>© 2026 Test Cases Generator. Neural Engine v4.2</p>
         </div>
         <div className="flex items-center gap-10">
-          <span className="hover:text-zinc-400 transition-colors cursor-pointer">Security Protocol</span>
-          <span className="hover:text-zinc-400 transition-colors cursor-pointer">AI Ethics</span>
-          <span className="hover:text-zinc-400 transition-colors cursor-pointer">Enterprise SLA</span>
+          <span className="hover:text-zinc-600 transition-colors cursor-pointer">Security Protocol</span>
+          <span className="hover:text-zinc-600 transition-colors cursor-pointer">AI Ethics</span>
+          <span className="hover:text-zinc-600 transition-colors cursor-pointer">Enterprise SLA</span>
         </div>
       </footer>
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSettings(false)}
+              className="absolute inset-0 bg-zinc-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-lg bg-white rounded-[2.5rem] p-10 shadow-2xl overflow-hidden"
+            >
+              <div 
+                className="absolute -top-24 -right-24 w-64 h-64 rounded-full blur-[100px] opacity-[0.08]"
+                style={{ backgroundColor: accentColor }}
+              ></div>
+
+              <div className="flex items-center justify-between mb-10">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                    <Settings className="w-5 h-5 text-zinc-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-serif italic text-zinc-900">Jira Configuration</h3>
+                    <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-black">Enterprise Connectivity</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Atlassian Domain</label>
+                  <div className="relative group">
+                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                    <input 
+                      type="text"
+                      placeholder="company.atlassian.net"
+                      value={jiraConfig.domain}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, domain: e.target.value })}
+                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Authorized Email</label>
+                  <div className="relative group">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                    <input 
+                      type="email"
+                      placeholder="qa-lead@company.com"
+                      value={jiraConfig.email}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
+                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">API Access Token</label>
+                  <div className="relative group">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                    <input 
+                      type="password"
+                      placeholder="••••••••••••••••"
+                      value={jiraConfig.apiToken}
+                      onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
+                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-10 pt-8 border-t border-zinc-100 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-[9px] text-zinc-400 leading-relaxed italic max-w-[240px]">
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <p>Credentials are processed in-memory and never persisted.</p>
+                </div>
+                <button 
+                  onClick={() => setShowSettings(false)}
+                  className="px-8 py-3 rounded-xl text-white font-black text-[10px] uppercase tracking-widest shadow-lg transition-all hover:scale-105"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

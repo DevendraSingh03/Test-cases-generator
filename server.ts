@@ -39,7 +39,7 @@ async function startServer() {
         res.json({
           id: data.key,
           title: data.fields.summary,
-          description: data.fields.description?.content?.map((c: any) => c.content?.map((inner: any) => inner.text).join('')).join('\n') || data.fields.description || "No description provided",
+          description: data.fields.description?.content?.map((c: any) => (c.content || []).map((inner: any) => inner.text || "").join('')).join('\n') || data.fields.description || "No description provided",
           acceptanceCriteria: [
             "Acceptance criteria fetched from Jira",
             ...(data.fields.customfield_10016 || []) // Example custom field for AC

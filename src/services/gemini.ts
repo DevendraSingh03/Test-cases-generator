@@ -30,7 +30,7 @@ export async function generateTestDesign(
     Version: ${fixVersion}
     Title: ${userStoryData.title}
     Description: ${userStoryData.description}
-    Acceptance Criteria: ${userStoryData.acceptanceCriteria.join(", ")}
+    Acceptance Criteria: ${Array.isArray(userStoryData.acceptanceCriteria) ? userStoryData.acceptanceCriteria.join(", ") : "None provided"}
 
     Requirements:
     1. Generate at least 10 Test Scenarios covering:
