@@ -21,7 +21,11 @@ import {
   Cpu,
   ShieldCheck,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Layout,
+  Briefcase,
+  FileUp,
+  Plus
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { clsx, type ClassValue } from "clsx";
@@ -58,6 +62,9 @@ export default function App() {
   const [manualTitle, setManualTitle] = useState("");
   const [manualDescription, setManualDescription] = useState("");
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"intelligence" | "jira" | "ai">("intelligence");
+  const [customFormat, setCustomFormat] = useState("");
+  const [lastSource, setLastSource] = useState<DesignBy>("Jira ID");
   
   // Theme & Jira Config
   const [accentColor, setAccentColor] = useState("#3b82f6"); // Default Blue
@@ -67,10 +74,16 @@ export default function App() {
     email: ""
   });
   const [aiConfig, setAiConfig] = useState<AIConfig>({
+    provider: "Gemini",
     geminiKey: "",
     openaiKey: "",
-    anthropicKey: ""
+    anthropicKey: "",
+    customProviders: []
   });
+  const [newProviderName, setNewProviderName] = useState("");
+  const [newProviderKey, setNewProviderKey] = useState("");
+  const [newProviderBase, setNewProviderBase] = useState<"OpenAI" | "Anthropic" | "Gemini">("OpenAI");
+  const [isAddingProvider, setIsAddingProvider] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent-color', accentColor);
@@ -117,14 +130,16 @@ export default function App() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    if (designBy === "Manual Input") {
+    const effectiveDesignBy = designBy === "Custom Format" ? lastSource : designBy;
+    
+    if (effectiveDesignBy === "Manual Input") {
       if (!manualTitle || !manualDescription || !fixVersion || !projectName) {
-        setError("Please fill in all fields for manual input");
+        setError("Please fill in all fields (Manual Story details + Project/Version)");
         return;
       }
     } else {
       if (!jiraId || !fixVersion || !projectName) {
-        setError("Please fill in all fields");
+        setError("Please fill in all fields (Jira ID + Project/Version)");
         return;
       }
     }
@@ -135,7 +150,7 @@ export default function App() {
     try {
       let userStoryData = storyDetails;
 
-      if (designBy === "Manual Input") {
+      if (effectiveDesignBy === "Manual Input") {
         userStoryData = {
           id: "MANUAL",
           title: manualTitle,
@@ -164,12 +179,13 @@ export default function App() {
       }
 
       const generationResult = await generateTestDesign(
-        designBy === "Manual Input" ? "MANUAL" : jiraId,
+        effectiveDesignBy === "Manual Input" ? "MANUAL" : jiraId,
         fixVersion,
         projectName,
         userStoryData,
         genMode,
-        aiConfig
+        aiConfig,
+        customFormat
       );
 
       setResult(generationResult);
@@ -361,12 +377,15 @@ export default function App() {
                     {/* Methodology Selector */}
                     <div className="space-y-6">
                       <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Analysis Method</label>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        {(["Jira ID", "Release Name", "Manual Input"] as DesignBy[]).map((option) => (
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        {(["Jira ID", "Release Name", "Manual Input", "Custom Format"] as DesignBy[]).map((option) => (
                           <button 
                             key={option}
                             type="button"
-                            onClick={() => setDesignBy(option)}
+                            onClick={() => {
+                              setDesignBy(option);
+                              if (option !== "Custom Format") setLastSource(option);
+                            }}
                             className={cn(
                               "flex items-center gap-4 p-5 rounded-2xl border transition-all text-left group",
                               designBy === option 
@@ -379,6 +398,7 @@ export default function App() {
                               {option === "Jira ID" && <Search className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
                               {option === "Release Name" && <Layers className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
                               {option === "Manual Input" && <FileText className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
+                              {option === "Custom Format" && <FileUp className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[10px] uppercase tracking-widest font-black">{option}</span>
@@ -386,6 +406,7 @@ export default function App() {
                                 {option === "Jira ID" && "Fetch from Atlassian"}
                                 {option === "Release Name" && "Bulk Analysis"}
                                 {option === "Manual Input" && "Direct Input"}
+                                {option === "Custom Format" && "Output Template"}
                               </span>
                             </div>
                           </button>
@@ -395,70 +416,144 @@ export default function App() {
 
                     {/* Form Inputs */}
                     <div className="grid grid-cols-1 gap-8">
-                      {designBy === "Manual Input" ? (
-                        <>
-                          <div className="space-y-3">
-                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Title</label>
-                            <input 
-                              type="text"
-                              placeholder="e.g., Implement OAuth2 Authentication Flow"
-                              value={manualTitle}
-                              onChange={(e) => setManualTitle(e.target.value)}
-                              className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
-                            />
-                          </div>
-                          <div className="space-y-3">
-                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Description / Requirements</label>
-                            <textarea 
-                              placeholder="Paste detailed requirements, acceptance criteria, or user story description here..."
-                              value={manualDescription}
-                              onChange={(e) => setManualDescription(e.target.value)}
-                              className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm min-h-[200px] resize-none"
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="space-y-3">
-                            <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Jira Identifier</label>
-                            <div className="flex gap-4">
+                      <AnimatePresence mode="wait">
+                        {designBy === "Manual Input" && (
+                          <motion.div 
+                            key="manual"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                          >
+                            <div className="space-y-3">
+                              <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Title</label>
                               <input 
                                 type="text"
-                                placeholder="JIRA-925"
-                                value={jiraId}
-                                onChange={(e) => setJiraId(e.target.value)}
-                                className="flex-1 px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono text-sm"
+                                placeholder="e.g., Implement OAuth2 Authentication Flow"
+                                value={manualTitle}
+                                onChange={(e) => setManualTitle(e.target.value)}
+                                className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
                               />
-                              <button
-                                type="button"
-                                onClick={handleFetchDetails}
-                                disabled={fetchingDetails || !jiraId}
-                                className="px-8 py-5 rounded-2xl border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-300 font-black text-[10px] uppercase tracking-[0.2em] transition-all disabled:opacity-50 flex items-center gap-3 shadow-sm"
-                              >
-                                {fetchingDetails ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                                Fetch Details
-                              </button>
                             </div>
-                          </div>
+                            <div className="space-y-3">
+                              <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Description / Requirements</label>
+                              <textarea 
+                                placeholder="Paste detailed requirements, acceptance criteria, or user story description here..."
+                                value={manualDescription}
+                                onChange={(e) => setManualDescription(e.target.value)}
+                                className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm min-h-[200px] resize-none"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
 
-                          {storyDetails && (
-                            <motion.div 
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              className="bg-zinc-50 border border-zinc-100 rounded-2xl p-6 space-y-4"
-                            >
+                        {designBy === "Jira ID" && (
+                          <motion.div 
+                            key="jira"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                          >
+                            <div className="space-y-3">
+                              <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Jira Identifier</label>
+                              <div className="flex gap-4">
+                                <input 
+                                  type="text"
+                                  placeholder="JIRA-925"
+                                  value={jiraId}
+                                  onChange={(e) => setJiraId(e.target.value)}
+                                  className="flex-1 px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono text-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleFetchDetails}
+                                  disabled={fetchingDetails || !jiraId}
+                                  className="px-8 py-5 rounded-2xl border border-zinc-200 bg-white text-zinc-500 hover:text-zinc-900 hover:border-zinc-300 font-black text-[10px] uppercase tracking-[0.2em] transition-all disabled:opacity-50 flex items-center gap-3 shadow-sm"
+                                >
+                                  {fetchingDetails ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                                  Fetch Details
+                                </button>
+                              </div>
+                            </div>
+
+                            {storyDetails && (
+                              <motion.div 
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                className="bg-zinc-50 border border-zinc-100 rounded-2xl p-6 space-y-4"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-[10px] uppercase tracking-widest font-black text-zinc-400">Retrieved Story Details</h4>
+                                  <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded">Sync Successful</span>
+                                </div>
+                                <div className="space-y-2">
+                                  <p className="text-zinc-900 font-serif italic text-lg">{storyDetails.title}</p>
+                                  <p className="text-zinc-500 text-xs line-clamp-2 leading-relaxed">{storyDetails.description}</p>
+                                </div>
+                              </motion.div>
+                            )}
+                          </motion.div>
+                        )}
+
+                        {designBy === "Custom Format" && (
+                          <motion.div 
+                            key="format"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className="space-y-6"
+                          >
+                            <div className="space-y-4">
                               <div className="flex items-center justify-between">
-                                <h4 className="text-[10px] uppercase tracking-widest font-black text-zinc-400">Retrieved Story Details</h4>
-                                <span className="text-[8px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-2 py-1 rounded">Sync Successful</span>
+                                <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Output Template / Format</label>
+                                <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-[10px] font-black uppercase tracking-widest text-zinc-500 cursor-pointer hover:bg-zinc-100 transition-all">
+                                  <FileUp className="w-3.5 h-3.5" />
+                                  <span>Upload Format</span>
+                                  <input 
+                                    type="file" 
+                                    className="hidden" 
+                                    accept=".txt,.md,.json"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        const reader = new FileReader();
+                                        reader.onload = (re) => {
+                                          setCustomFormat(re.target?.result as string);
+                                        };
+                                        reader.readAsText(file);
+                                      }
+                                    }}
+                                  />
+                                </label>
                               </div>
-                              <div className="space-y-2">
-                                <p className="text-zinc-900 font-serif italic text-lg">{storyDetails.title}</p>
-                                <p className="text-zinc-500 text-xs line-clamp-2 leading-relaxed">{storyDetails.description}</p>
+                              <div className="relative">
+                                <textarea 
+                                  placeholder="Define your custom test case format, fields, or specific instructions..."
+                                  value={customFormat}
+                                  onChange={(e) => setCustomFormat(e.target.value)}
+                                  className="w-full h-64 px-8 py-6 bg-zinc-50 border border-zinc-100 rounded-[2rem] text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all resize-none font-mono"
+                                />
+                                {customFormat && (
+                                  <button 
+                                    type="button"
+                                    onClick={() => setCustomFormat("")}
+                                    className="absolute top-4 right-4 p-2 rounded-lg bg-white border border-zinc-100 text-zinc-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
-                            </motion.div>
-                          )}
-                        </>
-                      )}
+                              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
+                                <Sparkles className="w-4 h-4 text-emerald-500" />
+                                <p className="text-[9px] text-emerald-700 uppercase tracking-widest font-black">
+                                  The AI will strictly follow this format for all generated test cases.
+                                </p>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
 
                     {error && (
@@ -703,6 +798,8 @@ export default function App() {
           <span className="hover:text-zinc-600 transition-colors cursor-pointer">Security Protocol</span>
           <span className="hover:text-zinc-600 transition-colors cursor-pointer">AI Ethics</span>
           <span className="hover:text-zinc-600 transition-colors cursor-pointer">Enterprise SLA</span>
+          <div className="h-4 w-px bg-zinc-200"></div>
+          <span className="text-zinc-900 font-black uppercase tracking-widest text-[10px]">devendra singh</span>
         </div>
       </footer>
 
@@ -745,166 +842,380 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                {/* Intelligence Mode */}
-                <div className="space-y-4">
-                  <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Intelligence Mode</label>
-                  <div className="grid grid-cols-1 gap-3">
-                    {(["Normal", "RAG", "Agent"] as GenerationMode[]).map((mode) => (
-                      <button 
-                        key={mode}
-                        type="button"
-                        onClick={() => setGenMode(mode)}
-                        className={cn(
-                          "flex items-center justify-between p-4 rounded-2xl border transition-all group",
-                          genMode === mode 
-                            ? "bg-zinc-50 text-zinc-900 shadow-sm" 
-                            : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
-                        )}
-                        style={{ borderColor: genMode === mode ? accentColor : undefined }}
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="p-2 rounded-lg bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
-                            {mode === "Normal" && <Sparkles className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                            {mode === "RAG" && <Database className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                            {mode === "Agent" && <Cpu className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                          </div>
-                          <div className="text-left">
-                            <span className="text-[10px] uppercase tracking-widest font-black block">{mode}</span>
-                            <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
-                              {mode === "Normal" && "Standard QA"}
-                              {mode === "RAG" && "Context Precision"}
-                              {mode === "Agent" && "Autonomous Discovery"}
-                            </span>
-                          </div>
+              {/* Settings Tabs */}
+              <div className="flex items-center gap-1 mb-8 p-1 bg-zinc-50 rounded-2xl border border-zinc-100">
+                {[
+                  { id: "intelligence", label: "Intelligence", icon: Layout },
+                  { id: "jira", label: "Jira & Project", icon: Briefcase },
+                  { id: "ai", label: "AI Config", icon: Cpu },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setSettingsTab(tab.id as any)}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      settingsTab === tab.id
+                        ? "bg-white text-zinc-900 shadow-sm border border-zinc-100"
+                        : "text-zinc-400 hover:text-zinc-600"
+                    )}
+                    style={{ color: settingsTab === tab.id ? accentColor : undefined }}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-8 max-h-[50vh] overflow-y-auto pr-2 custom-scrollbar">
+                {settingsTab === "intelligence" && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Intelligence Mode */}
+                    <div className="space-y-4">
+                      <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Intelligence Mode</label>
+                      <div className="grid grid-cols-1 gap-3">
+                        {(["Normal", "RAG", "Agent"] as GenerationMode[]).map((mode) => (
+                          <button 
+                            key={mode}
+                            type="button"
+                            onClick={() => setGenMode(mode)}
+                            className={cn(
+                              "flex items-center justify-between p-4 rounded-2xl border transition-all group",
+                              genMode === mode 
+                                ? "bg-zinc-50 text-zinc-900 shadow-sm" 
+                                : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
+                            )}
+                            style={{ borderColor: genMode === mode ? accentColor : undefined }}
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="p-2 rounded-lg bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
+                                {mode === "Normal" && <Sparkles className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                                {mode === "RAG" && <Database className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                                {mode === "Agent" && <Cpu className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                              </div>
+                              <div className="text-left">
+                                <span className="text-[10px] uppercase tracking-widest font-black block">{mode}</span>
+                                <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+                                  {mode === "Normal" && "Standard QA"}
+                                  {mode === "RAG" && "Context Precision"}
+                                  {mode === "Agent" && "Autonomous Discovery"}
+                                </span>
+                              </div>
+                            </div>
+                            <div className={cn(
+                              "w-2 h-2 rounded-full transition-all duration-500",
+                              genMode === mode ? "scale-125 shadow-sm" : "opacity-20"
+                            )} style={{ backgroundColor: genMode === mode ? accentColor : 'zinc' }}></div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {settingsTab === "jira" && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* Project Details */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Release Version</label>
+                        <input 
+                          type="text"
+                          placeholder="v2.4.0"
+                          value={fixVersion}
+                          onChange={(e) => setFixVersion(e.target.value)}
+                          className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Project Name</label>
+                        <input 
+                          type="text"
+                          placeholder="Project X"
+                          value={projectName}
+                          onChange={(e) => setProjectName(e.target.value)}
+                          className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-zinc-100"></div>
+
+                    {/* Jira Config */}
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Atlassian Domain</label>
+                        <div className="relative group">
+                          <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                          <input 
+                            type="text"
+                            placeholder="company.atlassian.net"
+                            value={jiraConfig.domain}
+                            onChange={(e) => setJiraConfig({ ...jiraConfig, domain: e.target.value })}
+                            className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                          />
                         </div>
-                        <div className={cn(
-                          "w-2 h-2 rounded-full transition-all duration-500",
-                          genMode === mode ? "scale-125 shadow-sm" : "opacity-20"
-                        )} style={{ backgroundColor: genMode === mode ? accentColor : 'zinc' }}></div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Project Details */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Release Version</label>
-                    <input 
-                      type="text"
-                      placeholder="v2.4.0"
-                      value={fixVersion}
-                      onChange={(e) => setFixVersion(e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Project Name</label>
-                    <input 
-                      type="text"
-                      placeholder="Project X"
-                      value={projectName}
-                      onChange={(e) => setProjectName(e.target.value)}
-                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="h-px bg-zinc-100"></div>
-
-                {/* Jira Config */}
-                <div className="space-y-6">
-                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Atlassian Domain</label>
-                  <div className="relative group">
-                    <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                    <input 
-                      type="text"
-                      placeholder="company.atlassian.net"
-                      value={jiraConfig.domain}
-                      onChange={(e) => setJiraConfig({ ...jiraConfig, domain: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Authorized Email</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                    <input 
-                      type="email"
-                      placeholder="qa-lead@company.com"
-                      value={jiraConfig.email}
-                      onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">API Access Token</label>
-                  <div className="relative group">
-                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                    <input 
-                      type="password"
-                      placeholder="••••••••••••••••"
-                      value={jiraConfig.apiToken}
-                      onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
-                      className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="h-px bg-zinc-100"></div>
-
-                {/* AI Model Configuration */}
-                <div className="space-y-6">
-                  <div className="flex items-center gap-2 ml-1">
-                    <Cpu className="w-3 h-3 text-zinc-400" />
-                    <label className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-black">AI Model Configuration</label>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Gemini API Key</label>
-                    <div className="relative group">
-                      <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                      <input 
-                        type="password"
-                        placeholder="Gemini API Key (Optional Override)"
-                        value={aiConfig.geminiKey}
-                        onChange={(e) => setAiConfig({ ...aiConfig, geminiKey: e.target.value })}
-                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                      />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Authorized Email</label>
+                        <div className="relative group">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                          <input 
+                            type="email"
+                            placeholder="qa-lead@company.com"
+                            value={jiraConfig.email}
+                            onChange={(e) => setJiraConfig({ ...jiraConfig, email: e.target.value })}
+                            className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">API Access Token</label>
+                        <div className="relative group">
+                          <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                          <input 
+                            type="password"
+                            placeholder="••••••••••••••••"
+                            value={jiraConfig.apiToken}
+                            onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
+                            className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">OpenAI (GPT) API Key</label>
-                    <div className="relative group">
-                      <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                      <input 
-                        type="password"
-                        placeholder="sk-••••••••••••••••"
-                        value={aiConfig.openaiKey}
-                        onChange={(e) => setAiConfig({ ...aiConfig, openaiKey: e.target.value })}
-                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                      />
+                {settingsTab === "ai" && (
+                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    {/* AI Model Configuration */}
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between ml-1">
+                          <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold">Preferred Provider</label>
+                          <button 
+                            onClick={() => setIsAddingProvider(true)}
+                            className="text-[8px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-900 transition-colors flex items-center gap-1"
+                          >
+                            <Plus className="w-2.5 h-2.5" />
+                            Add Custom
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {(["Gemini", "OpenAI", "Anthropic"] as const).map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => setAiConfig({ ...aiConfig, provider: p })}
+                              className={cn(
+                                "py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                aiConfig.provider === p
+                                  ? "bg-zinc-900 text-white border-zinc-900 shadow-md"
+                                  : "bg-zinc-50 text-zinc-400 border-zinc-100 hover:border-zinc-200"
+                              )}
+                            >
+                              {p}
+                            </button>
+                          ))}
+                          {aiConfig.customProviders.map((cp) => (
+                            <div key={cp.id} className="relative group/cp">
+                              <button
+                                onClick={() => setAiConfig({ ...aiConfig, provider: cp.id })}
+                                className={cn(
+                                  "py-2 px-3 pr-8 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
+                                  aiConfig.provider === cp.id
+                                    ? "bg-zinc-900 text-white border-zinc-900 shadow-md"
+                                    : "bg-zinc-50 text-zinc-400 border-zinc-100 hover:border-zinc-200"
+                                )}
+                              >
+                                {cp.name}
+                              </button>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setAiConfig({
+                                    ...aiConfig,
+                                    provider: aiConfig.provider === cp.id ? "Gemini" : aiConfig.provider,
+                                    customProviders: aiConfig.customProviders.filter(p => p.id !== cp.id)
+                                  });
+                                }}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-red-500 opacity-0 group-hover/cp:opacity-100 transition-all"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <div className="h-px bg-zinc-100 my-2"></div>
+
+                      <AnimatePresence mode="wait">
+                        {aiConfig.provider === "Gemini" && (
+                          <motion.div 
+                            key="gemini-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Gemini API Key</label>
+                            <div className="relative group">
+                              <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="Gemini API Key (Optional Override)"
+                                value={aiConfig.geminiKey}
+                                onChange={(e) => setAiConfig({ ...aiConfig, geminiKey: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiConfig.provider === "OpenAI" && (
+                          <motion.div 
+                            key="openai-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">OpenAI (GPT) API Key</label>
+                            <div className="relative group">
+                              <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="sk-••••••••••••••••"
+                                value={aiConfig.openaiKey}
+                                onChange={(e) => setAiConfig({ ...aiConfig, openaiKey: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiConfig.provider === "Anthropic" && (
+                          <motion.div 
+                            key="anthropic-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Anthropic API Key</label>
+                            <div className="relative group">
+                              <Database className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="ant-••••••••••••••••"
+                                value={aiConfig.anthropicKey}
+                                onChange={(e) => setAiConfig({ ...aiConfig, anthropicKey: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiConfig.customProviders.find(cp => cp.id === aiConfig.provider) && (
+                          <motion.div 
+                            key={`custom-${aiConfig.provider}`}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">
+                              {aiConfig.customProviders.find(cp => cp.id === aiConfig.provider)?.name} API Key
+                            </label>
+                            <div className="relative group">
+                              <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="Enter API Key"
+                                value={aiConfig.customProviders.find(cp => cp.id === aiConfig.provider)?.apiKey || ""}
+                                onChange={(e) => {
+                                  const updated = aiConfig.customProviders.map(cp => 
+                                    cp.id === aiConfig.provider ? { ...cp, apiKey: e.target.value } : cp
+                                  );
+                                  setAiConfig({ ...aiConfig, customProviders: updated });
+                                }}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {isAddingProvider && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          className="p-4 bg-zinc-50 border border-zinc-100 rounded-2xl space-y-4"
+                        >
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-900">New Custom Provider</h4>
+                            <button onClick={() => setIsAddingProvider(false)} className="text-zinc-400 hover:text-zinc-900">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1">
+                              <label className="text-[8px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Name</label>
+                              <input 
+                                type="text"
+                                placeholder="e.g., My GPT"
+                                value={newProviderName}
+                                onChange={(e) => setNewProviderName(e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-zinc-100 rounded-lg text-xs"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[8px] uppercase tracking-widest text-zinc-400 font-bold ml-1">Base API</label>
+                              <select 
+                                value={newProviderBase}
+                                onChange={(e) => setNewProviderBase(e.target.value as any)}
+                                className="w-full px-3 py-2 bg-white border border-zinc-100 rounded-lg text-xs"
+                              >
+                                <option value="OpenAI">OpenAI Compatible</option>
+                                <option value="Anthropic">Anthropic Compatible</option>
+                                <option value="Gemini">Gemini Compatible</option>
+                              </select>
+                            </div>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[8px] uppercase tracking-widest text-zinc-400 font-bold ml-1">API Key</label>
+                            <input 
+                              type="password"
+                              placeholder="sk-••••••••"
+                              value={newProviderKey}
+                              onChange={(e) => setNewProviderKey(e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-zinc-100 rounded-lg text-xs"
+                            />
+                          </div>
+                          <button 
+                            onClick={() => {
+                              if (!newProviderName || !newProviderKey) return;
+                              const id = `custom-${Date.now()}`;
+                              setAiConfig({
+                                ...aiConfig,
+                                provider: id,
+                                customProviders: [
+                                  ...aiConfig.customProviders,
+                                  { id, name: newProviderName, apiKey: newProviderKey, baseProvider: newProviderBase }
+                                ]
+                              });
+                              setNewProviderName("");
+                              setNewProviderKey("");
+                              setIsAddingProvider(false);
+                            }}
+                            className="w-full py-2 bg-zinc-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest"
+                          >
+                            Add Provider
+                          </button>
+                        </motion.div>
+                      )}
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Anthropic API Key</label>
-                    <div className="relative group">
-                      <Database className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
-                      <input 
-                        type="password"
-                        placeholder="ant-••••••••••••••••"
-                        value={aiConfig.anthropicKey}
-                        onChange={(e) => setAiConfig({ ...aiConfig, anthropicKey: e.target.value })}
-                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
 
               <div className="mt-10 pt-8 border-t border-zinc-100 flex items-center justify-between">

@@ -7,11 +7,18 @@ export async function generateTestDesign(
   projectName: string,
   userStoryData: any,
   mode: "Normal" | "RAG" | "Agent" = "Normal",
-  aiConfig?: AIConfig
+  aiConfig?: AIConfig,
+  customFormat?: string
 ): Promise<GenerationResult> {
-  const apiKey = aiConfig?.geminiKey || process.env.GEMINI_API_KEY || "";
-  const ai = new GoogleGenAI({ apiKey });
-  const model = "gemini-3.1-pro-preview";
+  const providerId = aiConfig?.provider || "Gemini";
+  const customProvider = aiConfig?.customProviders?.find(p => p.id === providerId);
+  
+  const effectiveProvider = customProvider ? customProvider.baseProvider : providerId;
+  const effectiveApiKey = customProvider ? customProvider.apiKey : (
+    providerId === "Gemini" ? (aiConfig?.geminiKey || process.env.GEMINI_API_KEY || "") :
+    providerId === "OpenAI" ? aiConfig?.openaiKey :
+    providerId === "Anthropic" ? aiConfig?.anthropicKey : ""
+  );
 
   let modeInstruction = "";
   if (mode === "RAG") {
@@ -43,8 +50,13 @@ export async function generateTestDesign(
     `;
   }
 
+  const formatInstruction = customFormat 
+    ? `\nCUSTOM OUTPUT FORMAT REQUIREMENTS:\n${customFormat}\n` 
+    : "";
+
   const prompt = `
     ${modeInstruction}
+    ${formatInstruction}
     
     Generate a comprehensive test design for the following User Story:
     Jira ID: ${jiraId}
@@ -72,64 +84,131 @@ export async function generateTestDesign(
     Return the result in JSON format matching the provided schema.
   `;
 
-  const response = await ai.models.generateContent({
-    model,
-    contents: [{ parts: [{ text: prompt }] }],
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          scenarios: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                sNo: { type: Type.INTEGER },
-                folder: { type: Type.STRING },
-                userStory: { type: Type.STRING },
-                scenarioId: { type: Type.STRING },
-                scenarioName: { type: Type.STRING },
-                objective: { type: Type.STRING },
-                classification: { type: Type.STRING },
-                priority: { type: Type.STRING },
-                comments: { type: Type.STRING },
-                providedBy: { type: Type.STRING },
-              },
-              required: ["sNo", "folder", "userStory", "scenarioId", "scenarioName", "objective", "classification", "priority", "comments", "providedBy"]
+  let text = "";
+
+  if (effectiveProvider === "Gemini") {
+    if (!effectiveApiKey) throw new Error("Gemini API Key is missing");
+    
+    const ai = new GoogleGenAI({ apiKey: effectiveApiKey });
+    const model = "gemini-3.1-pro-preview";
+
+    const response = await ai.models.generateContent({
+      model,
+      contents: [{ parts: [{ text: prompt }] }],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            scenarios: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  sNo: { type: Type.INTEGER },
+                  folder: { type: Type.STRING },
+                  userStory: { type: Type.STRING },
+                  scenarioId: { type: Type.STRING },
+                  scenarioName: { type: Type.STRING },
+                  objective: { type: Type.STRING },
+                  classification: { type: Type.STRING },
+                  priority: { type: Type.STRING },
+                  comments: { type: Type.STRING },
+                  providedBy: { type: Type.STRING },
+                },
+                required: ["sNo", "folder", "userStory", "scenarioId", "scenarioName", "objective", "classification", "priority", "comments", "providedBy"]
+              }
+            },
+            testCases: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  sNo: { type: Type.INTEGER },
+                  folder: { type: Type.STRING },
+                  userStory: { type: Type.STRING },
+                  testId: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  objective: { type: Type.STRING },
+                  precondition: { type: Type.STRING },
+                  testSteps: { type: Type.STRING },
+                  expectedResult: { type: Type.STRING },
+                  postCondition: { type: Type.STRING },
+                  classification: { type: Type.STRING },
+                  priority: { type: Type.STRING },
+                  automatable: { type: Type.STRING, enum: ["Y", "N"] },
+                  automationStatus: { type: Type.STRING },
+                },
+                required: ["sNo", "folder", "userStory", "testId", "name", "objective", "precondition", "testSteps", "expectedResult", "postCondition", "classification", "priority", "automatable", "automationStatus"]
+              }
             }
           },
-          testCases: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                sNo: { type: Type.INTEGER },
-                folder: { type: Type.STRING },
-                userStory: { type: Type.STRING },
-                testId: { type: Type.STRING },
-                name: { type: Type.STRING },
-                objective: { type: Type.STRING },
-                precondition: { type: Type.STRING },
-                testSteps: { type: Type.STRING },
-                expectedResult: { type: Type.STRING },
-                postCondition: { type: Type.STRING },
-                classification: { type: Type.STRING },
-                priority: { type: Type.STRING },
-                automatable: { type: Type.STRING, enum: ["Y", "N"] },
-                automationStatus: { type: Type.STRING },
-              },
-              required: ["sNo", "folder", "userStory", "testId", "name", "objective", "precondition", "testSteps", "expectedResult", "postCondition", "classification", "priority", "automatable", "automationStatus"]
-            }
-          }
-        },
-        required: ["scenarios", "testCases"]
+          required: ["scenarios", "testCases"]
+        }
       }
-    }
-  });
+    });
+    text = response.text || "";
+  } else if (effectiveProvider === "OpenAI") {
+    if (!effectiveApiKey) throw new Error("OpenAI API Key is missing");
 
-  const text = response.text;
-  if (!text) throw new Error("Failed to generate content");
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${effectiveApiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenAI Error: ${error.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    text = data.choices[0].message.content;
+  } else if (effectiveProvider === "Anthropic") {
+    if (!effectiveApiKey) throw new Error("Anthropic API Key is missing");
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": effectiveApiKey,
+        "anthropic-version": "2023-06-01",
+        "dangerously-allow-browser": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: 4096,
+        messages: [
+          { role: "user", content: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text." }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Anthropic Error: ${error.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    text = data.content[0].text;
+  }
+
+  if (!text) throw new Error("Failed to generate content from AI provider");
   
-  return JSON.parse(text) as GenerationResult;
+  try {
+    return JSON.parse(text) as GenerationResult;
+  } catch (e) {
+    console.error("JSON Parse Error:", text);
+    throw new Error("AI returned invalid JSON. Please try again.");
+  }
 }

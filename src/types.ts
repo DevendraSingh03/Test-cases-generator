@@ -39,11 +39,20 @@ export interface JiraConfig {
   email: string;
 }
 
+export interface CustomProvider {
+  id: string;
+  name: string;
+  apiKey: string;
+  baseProvider: "OpenAI" | "Anthropic" | "Gemini";
+}
+
 export interface AIConfig {
+  provider: string;
   geminiKey: string;
   openaiKey: string;
   anthropicKey: string;
+  customProviders: CustomProvider[];
 }
 
-export type DesignBy = "Jira ID" | "Release Name" | "Manual Input";
+export type DesignBy = "Jira ID" | "Release Name" | "Manual Input" | "Custom Format";
 export type GenerationMode = "Normal" | "RAG" | "Agent";
