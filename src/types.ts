@@ -43,7 +43,7 @@ export interface CustomProvider {
   id: string;
   name: string;
   apiKey: string;
-  baseProvider: "OpenAI" | "Anthropic" | "Gemini";
+  baseProvider: "OpenAI" | "Anthropic" | "Gemini" | "Cohere" | "HuggingFace";
 }
 
 export interface AIConfig {

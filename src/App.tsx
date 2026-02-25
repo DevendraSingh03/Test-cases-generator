@@ -25,7 +25,12 @@ import {
   Layout,
   Briefcase,
   FileUp,
-  Plus
+  Plus,
+  Wand2,
+  FileSpreadsheet,
+  FileJson,
+  FileCode,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { clsx, type ClassValue } from "clsx";
@@ -33,6 +38,10 @@ import { twMerge } from "tailwind-merge";
 import { generateTestDesign } from "./services/gemini";
 import { exportToExcel } from "./utils";
 import { GenerationResult, DesignBy, JiraConfig, GenerationMode, AIConfig } from "./types";
+import * as XLSX from 'xlsx';
+import mammoth from 'mammoth';
+import Papa from 'papaparse';
+import { GoogleGenAI } from "@google/genai";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -84,6 +93,9 @@ export default function App() {
   const [newProviderKey, setNewProviderKey] = useState("");
   const [newProviderBase, setNewProviderBase] = useState<"OpenAI" | "Anthropic" | "Gemini">("OpenAI");
   const [isAddingProvider, setIsAddingProvider] = useState(false);
+  const [suggestingFormat, setSuggestingFormat] = useState(false);
+  const [suggestedFormats, setSuggestedFormats] = useState<{name: string, content: string}[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent-color', accentColor);
@@ -124,6 +136,82 @@ export default function App() {
       setError(err.message || "Failed to fetch story details");
     } finally {
       setFetchingDetails(false);
+    }
+  };
+
+  const handleSuggestFormat = async () => {
+    setSuggestingFormat(true);
+    try {
+      const apiKey = aiConfig.geminiKey || process.env.GEMINI_API_KEY || "";
+      if (!apiKey) throw new Error("API Key required for suggestions");
+      
+      const genAI = new GoogleGenAI({ apiKey });
+      const model = "gemini-3.1-pro-preview";
+      
+      const prompt = `Suggest 3 different professional enterprise-grade test case formats in markdown or plain text. 
+      Format 1: Standard (ID, Title, Steps, Expected)
+      Format 2: Detailed (ID, Objective, Precondition, Steps, Expected, Post-condition, Priority)
+      Format 3: Gherkin Style (Feature, Scenario, Given, When, Then)
+      
+      Return ONLY a JSON array of objects with 'name' and 'content' properties. No other text.`;
+
+      const response = await genAI.models.generateContent({
+        model,
+        contents: [{ parts: [{ text: prompt }] }],
+        config: { responseMimeType: "application/json" }
+      });
+
+      const suggestions = JSON.parse(response.text || "[]");
+      setSuggestedFormats(suggestions);
+      setShowSuggestions(true);
+    } catch (err: any) {
+      setError("Failed to suggest formats: " + err.message);
+    } finally {
+      setSuggestingFormat(false);
+    }
+  };
+
+  const handleFileUpload = async (e: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const extension = file.name.split('.').pop()?.toLowerCase();
+
+    try {
+      if (extension === 'xlsx' || extension === 'xls') {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const bstr = evt.target?.result;
+          const wb = XLSX.read(bstr, { type: 'binary' });
+          const wsname = wb.SheetNames[0];
+          const ws = wb.Sheets[wsname];
+          const data = XLSX.utils.sheet_to_csv(ws);
+          setCustomFormat(data);
+        };
+        reader.readAsBinaryString(file);
+      } else if (extension === 'csv') {
+        Papa.parse(file, {
+          complete: (results) => {
+            setCustomFormat(JSON.stringify(results.data, null, 2));
+          }
+        });
+      } else if (extension === 'docx') {
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+          const arrayBuffer = evt.target?.result as ArrayBuffer;
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          setCustomFormat(result.value);
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (re) => {
+          setCustomFormat(re.target?.result as string);
+        };
+        reader.readAsText(file);
+      }
+    } catch (err) {
+      setError("Failed to parse file. Please try a different format.");
     }
   };
 
@@ -502,53 +590,111 @@ export default function App() {
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -10 }}
-                            className="space-y-6"
+                            className="space-y-8"
                           >
-                            <div className="space-y-4">
-                              <div className="flex items-center justify-between">
-                                <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Output Template / Format</label>
-                                <label className="flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-[10px] font-black uppercase tracking-widest text-zinc-500 cursor-pointer hover:bg-zinc-100 transition-all">
-                                  <FileUp className="w-3.5 h-3.5" />
-                                  <span>Upload Format</span>
-                                  <input 
-                                    type="file" 
-                                    className="hidden" 
-                                    accept=".txt,.md,.json"
-                                    onChange={(e) => {
-                                      const file = e.target.files?.[0];
-                                      if (file) {
-                                        const reader = new FileReader();
-                                        reader.onload = (re) => {
-                                          setCustomFormat(re.target?.result as string);
-                                        };
-                                        reader.readAsText(file);
-                                      }
-                                    }}
-                                  />
-                                </label>
+                            <div className="space-y-6">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="space-y-1">
+                                  <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Output Template / Format</label>
+                                  <p className="text-[9px] text-zinc-400 uppercase tracking-widest font-bold ml-1">Define manual structure or upload existing assets</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={handleSuggestFormat}
+                                    disabled={suggestingFormat}
+                                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all disabled:opacity-50 shadow-md"
+                                  >
+                                    {suggestingFormat ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                                    <span>Suggest Formats</span>
+                                  </button>
+                                  <label className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white border border-zinc-200 text-[10px] font-black uppercase tracking-widest text-zinc-500 cursor-pointer hover:border-zinc-300 transition-all shadow-sm">
+                                    <FileUp className="w-3.5 h-3.5" />
+                                    <span>Upload Asset</span>
+                                    <input 
+                                      type="file" 
+                                      className="hidden" 
+                                      accept=".txt,.md,.json,.xlsx,.xls,.csv,.docx"
+                                      onChange={handleFileUpload}
+                                    />
+                                  </label>
+                                </div>
                               </div>
-                              <div className="relative">
+
+                              <AnimatePresence>
+                                {showSuggestions && (
+                                  <motion.div 
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    className="grid grid-cols-1 sm:grid-cols-3 gap-3 overflow-hidden"
+                                  >
+                                    {suggestedFormats.map((f, idx) => (
+                                      <button
+                                        key={idx}
+                                        type="button"
+                                        onClick={() => {
+                                          setCustomFormat(f.content);
+                                          setShowSuggestions(false);
+                                        }}
+                                        className="p-4 rounded-2xl border border-zinc-100 bg-zinc-50/50 text-left hover:border-zinc-300 transition-all group"
+                                      >
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400 group-hover:text-zinc-900 transition-colors">{f.name}</span>
+                                          <CheckCircle2 className="w-3 h-3 text-emerald-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                        <p className="text-[8px] text-zinc-400 line-clamp-2 font-mono">{f.content}</p>
+                                      </button>
+                                    ))}
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+
+                              <div className="relative group/textarea">
                                 <textarea 
                                   placeholder="Define your custom test case format, fields, or specific instructions..."
                                   value={customFormat}
                                   onChange={(e) => setCustomFormat(e.target.value)}
-                                  className="w-full h-64 px-8 py-6 bg-zinc-50 border border-zinc-100 rounded-[2rem] text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all resize-none font-mono"
+                                  className="w-full h-80 px-8 py-8 bg-zinc-50 border border-zinc-100 rounded-[2.5rem] text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all resize-none font-mono leading-relaxed"
                                 />
-                                {customFormat && (
-                                  <button 
-                                    type="button"
-                                    onClick={() => setCustomFormat("")}
-                                    className="absolute top-4 right-4 p-2 rounded-lg bg-white border border-zinc-100 text-zinc-400 hover:text-red-500 transition-colors"
-                                  >
-                                    <X className="w-4 h-4" />
-                                  </button>
-                                )}
+                                <div className="absolute top-6 right-6 flex items-center gap-2">
+                                  {customFormat && (
+                                    <button 
+                                      type="button"
+                                      onClick={() => setCustomFormat("")}
+                                      className="p-2.5 rounded-xl bg-white border border-zinc-100 text-zinc-400 hover:text-red-500 transition-all shadow-sm"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                </div>
+                                
+                                <div className="absolute bottom-8 left-8 flex items-center gap-4">
+                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-zinc-100 shadow-sm">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Live Editor</span>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                    <FileSpreadsheet className="w-3.5 h-3.5 text-zinc-200" />
+                                    <FileJson className="w-3.5 h-3.5 text-zinc-200" />
+                                    <FileCode className="w-3.5 h-3.5 text-zinc-200" />
+                                  </div>
+                                </div>
                               </div>
-                              <div className="p-4 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center gap-3">
-                                <Sparkles className="w-4 h-4 text-emerald-500" />
-                                <p className="text-[9px] text-emerald-700 uppercase tracking-widest font-black">
-                                  The AI will strictly follow this format for all generated test cases.
-                                </p>
+
+                              <div className="p-6 bg-emerald-50/50 border border-emerald-100 rounded-3xl flex items-start gap-4">
+                                <div className="p-2 rounded-xl bg-white border border-emerald-100 shadow-sm">
+                                  <Sparkles className="w-4 h-4 text-emerald-500" />
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] text-emerald-900 uppercase tracking-widest font-black">
+                                    Neural Alignment Active
+                                  </p>
+                                  <p className="text-[9px] text-emerald-600/80 font-bold uppercase tracking-widest leading-relaxed">
+                                    The AI will strictly adhere to the provided structural constraints. 
+                                    All generated test cases will be mapped to your custom schema.
+                                  </p>
+                                </div>
                               </div>
                             </div>
                           </motion.div>
