@@ -19,8 +19,8 @@ export interface TestCase {
   name: string;
   objective: string;
   precondition: string;
-  testSteps: string;
-  expectedResult: string;
+  testSteps: string[];
+  expectedResult: string[];
   postCondition: string;
   classification: string;
   priority: string;

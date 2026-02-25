@@ -14,11 +14,29 @@ export async function generateTestDesign(
 
   let modeInstruction = "";
   if (mode === "RAG") {
-    modeInstruction = "Use a Retrieval-Augmented Generation (RAG) approach. Focus heavily on the provided context, acceptance criteria, and specific project details to ensure high relevance.";
+    modeInstruction = `
+      MODE: Retrieval-Augmented Generation (RAG)
+      INSTRUCTION: You must strictly adhere to the provided User Story details, Project context, and Versioning. 
+      Cross-reference the description with the acceptance criteria to ensure 100% requirement traceability. 
+      Do not hallucinate features not mentioned in the story.
+    `;
   } else if (mode === "Agent") {
-    modeInstruction = "Act as an autonomous Senior QA Agent. Use advanced reasoning to identify edge cases, security vulnerabilities, and complex integration points that might not be immediately obvious.";
+    modeInstruction = `
+      MODE: Autonomous QA Agent
+      INSTRUCTION: Act as an elite Senior QA Engineer with deep domain expertise. 
+      Beyond standard functional testing, you must proactively identify:
+      - Complex integration failure points
+      - Potential security loopholes (OWASP top 10 relevant to the story)
+      - Performance bottlenecks and scalability concerns
+      - Subtle edge cases and race conditions
+      - UX friction points
+      Think like a hacker and a power user simultaneously.
+    `;
   } else {
-    modeInstruction = "Follow standard enterprise QA practices to generate a balanced set of test scenarios and cases.";
+    modeInstruction = `
+      MODE: Standard Enterprise QA
+      INSTRUCTION: Generate a comprehensive and balanced set of test scenarios covering functional, negative, and boundary value testing based on standard industry best practices.
+    `;
   }
 
   const prompt = `
@@ -46,6 +64,8 @@ export async function generateTestDesign(
        - UI validation scenarios
 
     2. For each Scenario, generate detailed Test Cases following enterprise QA format.
+       - Provide "testSteps" as an array of strings, where each string is a single step.
+       - Provide "expectedResult" as an array of strings, where each string corresponds to the expected outcome of the steps.
 
     Return the result in JSON format matching the provided schema.
   `;
@@ -89,8 +109,14 @@ export async function generateTestDesign(
                 name: { type: Type.STRING },
                 objective: { type: Type.STRING },
                 precondition: { type: Type.STRING },
-                testSteps: { type: Type.STRING },
-                expectedResult: { type: Type.STRING },
+                testSteps: { 
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                expectedResult: { 
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
                 postCondition: { type: Type.STRING },
                 classification: { type: Type.STRING },
                 priority: { type: Type.STRING },

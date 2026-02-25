@@ -232,12 +232,22 @@ export default function App() {
           )}
           <div className="h-8 w-px bg-zinc-200"></div>
           
+          <div className="flex flex-col items-end">
+            <span className="text-[8px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Active Mode</span>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-50 border border-zinc-100">
+              <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accentColor }}></div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{genMode}</span>
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-zinc-200"></div>
+          
           <button
             onClick={() => setShowSettings(true)}
             className="flex items-center gap-3 px-4 py-2 rounded-xl bg-zinc-50 border border-zinc-100 text-[10px] uppercase tracking-widest font-black text-zinc-500 hover:bg-zinc-100 transition-all"
           >
             <Settings className="w-4 h-4" />
-            Jira Settings
+            Analyzer Settings
           </button>
 
           <div className="h-8 w-px bg-zinc-200"></div>
@@ -342,88 +352,46 @@ export default function App() {
                   </div>
 
                   <form onSubmit={handleSubmit} className="relative z-10 space-y-12">
-                    {/* Methodology & Mode Selector */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="space-y-6">
-                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Analysis Method</label>
-                        <div className="grid grid-cols-1 gap-3">
-                          {(["Jira ID", "Release Name", "Manual Input"] as DesignBy[]).map((option) => (
-                            <button 
-                              key={option}
-                              type="button"
-                              onClick={() => setDesignBy(option)}
-                              className={cn(
-                                "flex items-center gap-4 p-5 rounded-2xl border transition-all text-left group",
-                                designBy === option 
-                                  ? "bg-zinc-50 text-zinc-900 shadow-sm" 
-                                  : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
-                              )}
-                              style={{ borderColor: designBy === option ? accentColor : undefined }}
-                            >
-                              <div className="p-3 rounded-xl bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
-                                {option === "Jira ID" && <Search className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
-                                {option === "Release Name" && <Layers className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
-                                {option === "Manual Input" && <FileText className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
-                              </div>
-                              <div className="flex flex-col">
-                                <span className="text-[10px] uppercase tracking-widest font-black">{option}</span>
-                                <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
-                                  {option === "Jira ID" && "Fetch from Atlassian Cloud"}
-                                  {option === "Release Name" && "Bulk Release Analysis"}
-                                  {option === "Manual Input" && "Direct Story Specification"}
-                                </span>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-6">
-                        <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Intelligence Mode</label>
-                        <div className="grid grid-cols-1 gap-3">
-                          {(["Normal", "RAG", "Agent"] as GenerationMode[]).map((mode) => (
-                            <button 
-                              key={mode}
-                              type="button"
-                              onClick={() => setGenMode(mode)}
-                              className={cn(
-                                "flex items-center justify-between p-5 rounded-2xl border transition-all group",
-                                genMode === mode 
-                                  ? "bg-zinc-50 text-zinc-900 shadow-sm" 
-                                  : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
-                              )}
-                              style={{ borderColor: genMode === mode ? accentColor : undefined }}
-                            >
-                              <div className="flex items-center gap-4">
-                                <div className="p-3 rounded-xl bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
-                                  {mode === "Normal" && <Sparkles className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                                  {mode === "RAG" && <Database className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                                  {mode === "Agent" && <Cpu className="w-5 h-5" style={{ color: genMode === mode ? accentColor : undefined }} />}
-                                </div>
-                                <div className="text-left">
-                                  <span className="text-[10px] uppercase tracking-widest font-black block">{mode} Generation</span>
-                                  <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
-                                    {mode === "Normal" && "Standard Enterprise QA"}
-                                    {mode === "RAG" && "Context-Aware Precision"}
-                                    {mode === "Agent" && "Autonomous Edge-Case Discovery"}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className={cn(
-                                "w-2 h-2 rounded-full transition-all duration-500",
-                                genMode === mode ? "scale-125 shadow-sm" : "opacity-20"
-                              )} style={{ backgroundColor: genMode === mode ? accentColor : 'zinc' }}></div>
-                            </button>
-                          ))}
-                        </div>
+                    {/* Methodology Selector */}
+                    <div className="space-y-6">
+                      <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Analysis Method</label>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {(["Jira ID", "Release Name", "Manual Input"] as DesignBy[]).map((option) => (
+                          <button 
+                            key={option}
+                            type="button"
+                            onClick={() => setDesignBy(option)}
+                            className={cn(
+                              "flex items-center gap-4 p-5 rounded-2xl border transition-all text-left group",
+                              designBy === option 
+                                ? "bg-zinc-50 text-zinc-900 shadow-sm" 
+                                : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
+                            )}
+                            style={{ borderColor: designBy === option ? accentColor : undefined }}
+                          >
+                            <div className="p-3 rounded-xl bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
+                              {option === "Jira ID" && <Search className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
+                              {option === "Release Name" && <Layers className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
+                              {option === "Manual Input" && <FileText className="w-5 h-5" style={{ color: designBy === option ? accentColor : undefined }} />}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-[10px] uppercase tracking-widest font-black">{option}</span>
+                              <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest mt-1">
+                                {option === "Jira ID" && "Fetch from Atlassian"}
+                                {option === "Release Name" && "Bulk Analysis"}
+                                {option === "Manual Input" && "Direct Input"}
+                              </span>
+                            </div>
+                          </button>
+                        ))}
                       </div>
                     </div>
 
                     {/* Form Inputs */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-8">
                       {designBy === "Manual Input" ? (
                         <>
-                          <div className="space-y-3 md:col-span-2">
+                          <div className="space-y-3">
                             <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Title</label>
                             <input 
                               type="text"
@@ -433,7 +401,7 @@ export default function App() {
                               className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
                             />
                           </div>
-                          <div className="space-y-3 md:col-span-2">
+                          <div className="space-y-3">
                             <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Story Description / Requirements</label>
                             <textarea 
                               placeholder="Paste detailed requirements, acceptance criteria, or user story description here..."
@@ -445,7 +413,7 @@ export default function App() {
                         </>
                       ) : (
                         <>
-                          <div className="space-y-3 md:col-span-2">
+                          <div className="space-y-3">
                             <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Jira Identifier</label>
                             <div className="flex gap-4">
                               <input 
@@ -471,7 +439,7 @@ export default function App() {
                             <motion.div 
                               initial={{ opacity: 0, height: 0 }}
                               animate={{ opacity: 1, height: 'auto' }}
-                              className="md:col-span-2 bg-zinc-50 border border-zinc-100 rounded-2xl p-6 space-y-4"
+                              className="bg-zinc-50 border border-zinc-100 rounded-2xl p-6 space-y-4"
                             >
                               <div className="flex items-center justify-between">
                                 <h4 className="text-[10px] uppercase tracking-widest font-black text-zinc-400">Retrieved Story Details</h4>
@@ -485,27 +453,6 @@ export default function App() {
                           )}
                         </>
                       )}
-
-                      <div className="space-y-3">
-                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Release Version</label>
-                        <input 
-                          type="text"
-                          placeholder="v2.4.0-Stable"
-                          value={fixVersion}
-                          onChange={(e) => setFixVersion(e.target.value)}
-                          className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono text-sm"
-                        />
-                      </div>
-                      <div className="space-y-3">
-                        <label className="text-[10px] uppercase tracking-[0.3em] text-zinc-400 font-black ml-1">Project Designation</label>
-                        <input 
-                          type="text"
-                          placeholder="Global Infrastructure Systems"
-                          value={projectName}
-                          onChange={(e) => setProjectName(e.target.value)}
-                          className="w-full px-6 py-5 rounded-2xl border border-zinc-100 bg-zinc-50 text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all text-sm"
-                        />
-                      </div>
                     </div>
 
                     {error && (
@@ -680,14 +627,36 @@ export default function App() {
                             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
                             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Execution Protocol</span>
                           </div>
-                          <p className="text-base text-zinc-600 leading-relaxed font-light whitespace-pre-line pl-4 border-l border-zinc-100">{tc.testSteps}</p>
+                          <div className="space-y-3 pl-4 border-l border-zinc-100">
+                            {Array.isArray(tc.testSteps) ? (
+                              tc.testSteps.map((step, idx) => (
+                                <div key={idx} className="flex gap-3 text-sm text-zinc-600 leading-relaxed">
+                                  <span className="font-mono text-[10px] text-zinc-400 mt-1">{idx + 1}.</span>
+                                  <span>{step}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-zinc-600 leading-relaxed whitespace-pre-line">{tc.testSteps}</p>
+                            )}
+                          </div>
                         </div>
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
                             <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Projected Outcome</span>
                           </div>
-                          <p className="text-zinc-900 font-medium leading-relaxed pl-4 border-l border-zinc-100">{tc.expectedResult}</p>
+                          <div className="space-y-3 pl-4 border-l border-zinc-100">
+                            {Array.isArray(tc.expectedResult) ? (
+                              tc.expectedResult.map((result, idx) => (
+                                <div key={idx} className="flex gap-3 text-sm text-zinc-900 font-medium leading-relaxed">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-1 shrink-0" />
+                                  <span>{result}</span>
+                                </div>
+                              ))
+                            ) : (
+                              <p className="text-sm text-zinc-900 font-medium leading-relaxed">{tc.expectedResult}</p>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="px-10 py-6 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
@@ -751,8 +720,8 @@ export default function App() {
                     <Settings className="w-5 h-5 text-zinc-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-serif italic text-zinc-900">Jira Configuration</h3>
-                    <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-black">Enterprise Connectivity</p>
+                    <h3 className="text-lg font-serif italic text-zinc-900">Analyzer & Jira Settings</h3>
+                    <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-black">Enterprise Configuration</p>
                   </div>
                 </div>
                 <button 
@@ -763,8 +732,76 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <div className="space-y-2">
+              <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {/* Intelligence Mode */}
+                <div className="space-y-4">
+                  <label className="text-[10px] uppercase tracking-[0.4em] text-zinc-400 font-black block">Intelligence Mode</label>
+                  <div className="grid grid-cols-1 gap-3">
+                    {(["Normal", "RAG", "Agent"] as GenerationMode[]).map((mode) => (
+                      <button 
+                        key={mode}
+                        type="button"
+                        onClick={() => setGenMode(mode)}
+                        className={cn(
+                          "flex items-center justify-between p-4 rounded-2xl border transition-all group",
+                          genMode === mode 
+                            ? "bg-zinc-50 text-zinc-900 shadow-sm" 
+                            : "bg-transparent border-zinc-100 text-zinc-400 hover:border-zinc-200 hover:text-zinc-600"
+                        )}
+                        style={{ borderColor: genMode === mode ? accentColor : undefined }}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 rounded-lg bg-white border border-zinc-100 group-hover:border-zinc-200 transition-colors shadow-sm">
+                            {mode === "Normal" && <Sparkles className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                            {mode === "RAG" && <Database className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                            {mode === "Agent" && <Cpu className="w-4 h-4" style={{ color: genMode === mode ? accentColor : undefined }} />}
+                          </div>
+                          <div className="text-left">
+                            <span className="text-[10px] uppercase tracking-widest font-black block">{mode}</span>
+                            <span className="text-[8px] text-zinc-400 font-bold uppercase tracking-widest">
+                              {mode === "Normal" && "Standard QA"}
+                              {mode === "RAG" && "Context Precision"}
+                              {mode === "Agent" && "Autonomous Discovery"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full transition-all duration-500",
+                          genMode === mode ? "scale-125 shadow-sm" : "opacity-20"
+                        )} style={{ backgroundColor: genMode === mode ? accentColor : 'zinc' }}></div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Project Details */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Release Version</label>
+                    <input 
+                      type="text"
+                      placeholder="v2.4.0"
+                      value={fixVersion}
+                      onChange={(e) => setFixVersion(e.target.value)}
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Project Name</label>
+                    <input 
+                      type="text"
+                      placeholder="Project X"
+                      value={projectName}
+                      onChange={(e) => setProjectName(e.target.value)}
+                      className="w-full px-4 py-3 bg-zinc-50 border border-zinc-100 rounded-xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px bg-zinc-100"></div>
+
+                {/* Jira Config */}
+                <div className="space-y-6">
                   <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Atlassian Domain</label>
                   <div className="relative group">
                     <Globe className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
