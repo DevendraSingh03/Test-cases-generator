@@ -19,8 +19,8 @@ export interface TestCase {
   name: string;
   objective: string;
   precondition: string;
-  testSteps: string[];
-  expectedResult: string[];
+  testSteps: string;
+  expectedResult: string;
   postCondition: string;
   classification: string;
   priority: string;
@@ -37,6 +37,12 @@ export interface JiraConfig {
   apiToken: string;
   domain: string;
   email: string;
+}
+
+export interface AIConfig {
+  geminiKey: string;
+  openaiKey: string;
+  anthropicKey: string;
 }
 
 export type DesignBy = "Jira ID" | "Release Name" | "Manual Input";

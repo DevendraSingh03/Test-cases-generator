@@ -1,15 +1,16 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { GenerationResult, TestScenario, TestCase } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+import { GenerationResult, TestScenario, TestCase, AIConfig } from "../types";
 
 export async function generateTestDesign(
   jiraId: string,
   fixVersion: string,
   projectName: string,
   userStoryData: any,
-  mode: "Normal" | "RAG" | "Agent" = "Normal"
+  mode: "Normal" | "RAG" | "Agent" = "Normal",
+  aiConfig?: AIConfig
 ): Promise<GenerationResult> {
+  const apiKey = aiConfig?.geminiKey || process.env.GEMINI_API_KEY || "";
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3.1-pro-preview";
 
   let modeInstruction = "";

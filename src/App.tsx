@@ -28,7 +28,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { generateTestDesign } from "./services/gemini";
 import { exportToExcel } from "./utils";
-import { GenerationResult, DesignBy, JiraConfig, GenerationMode } from "./types";
+import { GenerationResult, DesignBy, JiraConfig, GenerationMode, AIConfig } from "./types";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -65,6 +65,11 @@ export default function App() {
     apiToken: "",
     domain: "",
     email: ""
+  });
+  const [aiConfig, setAiConfig] = useState<AIConfig>({
+    geminiKey: "",
+    openaiKey: "",
+    anthropicKey: ""
   });
 
   useEffect(() => {
@@ -163,7 +168,8 @@ export default function App() {
         fixVersion,
         projectName,
         userStoryData,
-        genMode
+        genMode,
+        aiConfig
       );
 
       setResult(generationResult);
@@ -724,7 +730,7 @@ export default function App() {
 
               <button 
                 onClick={() => setShowSettings(false)}
-                className="absolute top-8 right-8 w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all z-10 shadow-sm"
+                className="absolute top-8 right-8 w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all z-20 shadow-sm"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -845,6 +851,58 @@ export default function App() {
                       onChange={(e) => setJiraConfig({ ...jiraConfig, apiToken: e.target.value })}
                       className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
                     />
+                  </div>
+                </div>
+
+                <div className="h-px bg-zinc-100"></div>
+
+                {/* AI Model Configuration */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-2 ml-1">
+                    <Cpu className="w-3 h-3 text-zinc-400" />
+                    <label className="text-[10px] uppercase tracking-[0.2em] text-zinc-400 font-black">AI Model Configuration</label>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Gemini API Key</label>
+                    <div className="relative group">
+                      <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                      <input 
+                        type="password"
+                        placeholder="Gemini API Key (Optional Override)"
+                        value={aiConfig.geminiKey}
+                        onChange={(e) => setAiConfig({ ...aiConfig, geminiKey: e.target.value })}
+                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">OpenAI (GPT) API Key</label>
+                    <div className="relative group">
+                      <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                      <input 
+                        type="password"
+                        placeholder="sk-••••••••••••••••"
+                        value={aiConfig.openaiKey}
+                        onChange={(e) => setAiConfig({ ...aiConfig, openaiKey: e.target.value })}
+                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Anthropic API Key</label>
+                    <div className="relative group">
+                      <Database className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                      <input 
+                        type="password"
+                        placeholder="ant-••••••••••••••••"
+                        value={aiConfig.anthropicKey}
+                        onChange={(e) => setAiConfig({ ...aiConfig, anthropicKey: e.target.value })}
+                        className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
