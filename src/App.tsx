@@ -621,42 +621,50 @@ export default function App() {
                           </div>
                         )}
                       </div>
-                      <div className="p-10 space-y-10 flex-1">
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Execution Protocol</span>
-                          </div>
-                          <div className="space-y-3 pl-4 border-l border-zinc-100">
-                            {Array.isArray(tc.testSteps) ? (
-                              tc.testSteps.map((step, idx) => (
-                                <div key={idx} className="flex gap-3 text-sm text-zinc-600 leading-relaxed">
-                                  <span className="font-mono text-[10px] text-zinc-400 mt-1">{idx + 1}.</span>
-                                  <span>{step}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-zinc-600 leading-relaxed whitespace-pre-line">{tc.testSteps}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: accentColor }}></div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Projected Outcome</span>
-                          </div>
-                          <div className="space-y-3 pl-4 border-l border-zinc-100">
-                            {Array.isArray(tc.expectedResult) ? (
-                              tc.expectedResult.map((result, idx) => (
-                                <div key={idx} className="flex gap-3 text-sm text-zinc-900 font-medium leading-relaxed">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-500 mt-1 shrink-0" />
-                                  <span>{result}</span>
-                                </div>
-                              ))
-                            ) : (
-                              <p className="text-sm text-zinc-900 font-medium leading-relaxed">{tc.expectedResult}</p>
-                            )}
-                          </div>
+                      <div className="p-0 flex-1">
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-zinc-50/50 border-b border-zinc-100">
+                                <th className="pl-10 pr-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 w-20">Step</th>
+                                <th className="px-4 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Action</th>
+                                <th className="px-10 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Expected Result</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-zinc-50">
+                              {(() => {
+                                const steps = Array.isArray(tc.testSteps) ? tc.testSteps : [tc.testSteps];
+                                const results = Array.isArray(tc.expectedResult) ? tc.expectedResult : [tc.expectedResult];
+                                const rowCount = Math.max(steps.length, results.length);
+                                
+                                return Array.from({ length: rowCount }).map((_, idx) => (
+                                  <tr key={idx} className="group hover:bg-zinc-50/30 transition-colors">
+                                    <td className="pl-10 pr-4 py-5 align-top">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-zinc-100 text-[10px] font-mono font-bold text-zinc-500 group-hover:bg-white group-hover:shadow-sm transition-all">
+                                        {idx + 1}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-5 align-top">
+                                      <p className="text-sm text-zinc-600 leading-relaxed max-w-md">
+                                        {steps[idx] || "-"}
+                                      </p>
+                                    </td>
+                                    <td className="px-10 py-5 align-top">
+                                      <div className="flex gap-3">
+                                        {results[idx] && <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />}
+                                        <p className={cn(
+                                          "text-sm leading-relaxed",
+                                          results[idx] ? "text-zinc-900 font-medium" : "text-zinc-400 italic"
+                                        )}>
+                                          {results[idx] || "No specific outcome defined"}
+                                        </p>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ));
+                              })()}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                       <div className="px-10 py-6 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">
