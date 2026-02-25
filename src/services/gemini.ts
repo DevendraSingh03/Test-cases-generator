@@ -16,25 +16,28 @@ export async function generateTestDesign(
   if (mode === "RAG") {
     modeInstruction = `
       MODE: Retrieval-Augmented Generation (RAG)
+      METHODOLOGY: Grounded Context Analysis
       INSTRUCTION: You must strictly adhere to the provided User Story details, Project context, and Versioning. 
       Cross-reference the description with the acceptance criteria to ensure 100% requirement traceability. 
-      Do not hallucinate features not mentioned in the story.
+      Do not hallucinate features not mentioned in the story. Use the provided project metadata as the primary source of truth.
     `;
   } else if (mode === "Agent") {
     modeInstruction = `
-      MODE: Autonomous QA Agent
-      INSTRUCTION: Act as an elite Senior QA Engineer with deep domain expertise. 
-      Beyond standard functional testing, you must proactively identify:
-      - Complex integration failure points
-      - Potential security loopholes (OWASP top 10 relevant to the story)
-      - Performance bottlenecks and scalability concerns
-      - Subtle edge cases and race conditions
-      - UX friction points
+      MODE: Autonomous Multi-Agent Orchestration (CrewAI Style)
+      METHODOLOGY: Collaborative Agent Reasoning
+      INSTRUCTION: Act as a Lead QA Orchestrator managing a crew of specialized agents:
+      1. Security Agent: Focuses on OWASP, data privacy, and vulnerability vectors.
+      2. Integration Agent: Analyzes API contracts, race conditions, and system boundaries.
+      3. UX/Accessibility Agent: Evaluates user friction, WCAG compliance, and edge-case interactions.
+      4. Performance Agent: Identifies potential bottlenecks and scalability concerns.
+      
+      Synthesize their findings into a unified, high-density test suite that goes beyond standard functional testing. 
       Think like a hacker and a power user simultaneously.
     `;
   } else {
     modeInstruction = `
       MODE: Standard Enterprise QA
+      METHODOLOGY: Functional Verification
       INSTRUCTION: Generate a comprehensive and balanced set of test scenarios covering functional, negative, and boundary value testing based on standard industry best practices.
     `;
   }
@@ -64,8 +67,6 @@ export async function generateTestDesign(
        - UI validation scenarios
 
     2. For each Scenario, generate detailed Test Cases following enterprise QA format.
-       - Provide "testSteps" as an array of strings, where each string is a single step.
-       - Provide "expectedResult" as an array of strings, where each string corresponds to the expected outcome of the steps.
 
     Return the result in JSON format matching the provided schema.
   `;
@@ -109,14 +110,8 @@ export async function generateTestDesign(
                 name: { type: Type.STRING },
                 objective: { type: Type.STRING },
                 precondition: { type: Type.STRING },
-                testSteps: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                expectedResult: { 
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
+                testSteps: { type: Type.STRING },
+                expectedResult: { type: Type.STRING },
                 postCondition: { type: Type.STRING },
                 classification: { type: Type.STRING },
                 priority: { type: Type.STRING },

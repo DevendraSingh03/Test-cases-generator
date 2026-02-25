@@ -722,22 +722,21 @@ export default function App() {
                 style={{ backgroundColor: accentColor }}
               ></div>
 
-              <div className="flex items-center justify-between mb-10">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
-                    <Settings className="w-5 h-5 text-zinc-400" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-serif italic text-zinc-900">Analyzer & Jira Settings</h3>
-                    <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-black">Enterprise Configuration</p>
-                  </div>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="absolute top-8 right-8 w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 transition-all z-10 shadow-sm"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-4 mb-10">
+                <div className="w-10 h-10 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-center">
+                  <Settings className="w-5 h-5 text-zinc-400" />
                 </div>
-                <button 
-                  onClick={() => setShowSettings(false)}
-                  className="w-10 h-10 rounded-full bg-zinc-50 flex items-center justify-center text-zinc-400 hover:text-zinc-900 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div>
+                  <h3 className="text-lg font-serif italic text-zinc-900">Analyzer & Jira Settings</h3>
+                  <p className="text-[9px] uppercase tracking-widest text-zinc-400 font-black">Enterprise Configuration</p>
+                </div>
               </div>
 
               <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
