@@ -51,7 +51,7 @@ export async function generateTestDesign(
   }
 
   const formatInstruction = customFormat 
-    ? `\nCUSTOM OUTPUT FORMAT REQUIREMENTS:\n${customFormat}\n` 
+    ? `\nCUSTOM OUTPUT FORMAT REQUIREMENTS:\nThe user has provided a custom format/headers below. You MUST include ALL of these custom fields as keys in your JSON objects for both scenarios and testCases. Do not replace the standard keys (like scenarioName, testSteps, etc.), but add the custom ones alongside them.\n\n${customFormat}\n` 
     : "";
 
   const prompt = `
@@ -81,7 +81,15 @@ export async function generateTestDesign(
 
     2. For each Scenario, generate detailed Test Cases following enterprise QA format.
 
-    Return the result in JSON format matching the provided schema.
+    CRITICAL: You MUST return a valid JSON object with exactly two keys: "scenarios" and "testCases".
+    
+    The "scenarios" array must contain objects with AT LEAST these keys:
+    "sNo", "folder", "userStory", "scenarioId", "scenarioName", "objective", "classification", "priority", "comments", "providedBy"
+    
+    The "testCases" array must contain objects with AT LEAST these keys:
+    "sNo", "folder", "userStory", "testId", "name", "objective", "precondition", "testSteps", "expectedResult", "postCondition", "classification", "priority", "automatable" (must be "Y" or "N"), "automationStatus"
+
+    If a CUSTOM OUTPUT FORMAT was provided above, you MUST ALSO include every custom field requested as an additional key in the JSON objects.
   `;
 
   let text = "";
@@ -96,55 +104,7 @@ export async function generateTestDesign(
       model,
       contents: [{ parts: [{ text: prompt }] }],
       config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            scenarios: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  sNo: { type: Type.INTEGER },
-                  folder: { type: Type.STRING },
-                  userStory: { type: Type.STRING },
-                  scenarioId: { type: Type.STRING },
-                  scenarioName: { type: Type.STRING },
-                  objective: { type: Type.STRING },
-                  classification: { type: Type.STRING },
-                  priority: { type: Type.STRING },
-                  comments: { type: Type.STRING },
-                  providedBy: { type: Type.STRING },
-                },
-                required: ["sNo", "folder", "userStory", "scenarioId", "scenarioName", "objective", "classification", "priority", "comments", "providedBy"]
-              }
-            },
-            testCases: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  sNo: { type: Type.INTEGER },
-                  folder: { type: Type.STRING },
-                  userStory: { type: Type.STRING },
-                  testId: { type: Type.STRING },
-                  name: { type: Type.STRING },
-                  objective: { type: Type.STRING },
-                  precondition: { type: Type.STRING },
-                  testSteps: { type: Type.STRING },
-                  expectedResult: { type: Type.STRING },
-                  postCondition: { type: Type.STRING },
-                  classification: { type: Type.STRING },
-                  priority: { type: Type.STRING },
-                  automatable: { type: Type.STRING, enum: ["Y", "N"] },
-                  automationStatus: { type: Type.STRING },
-                },
-                required: ["sNo", "folder", "userStory", "testId", "name", "objective", "precondition", "testSteps", "expectedResult", "postCondition", "classification", "priority", "automatable", "automationStatus"]
-              }
-            }
-          },
-          required: ["scenarios", "testCases"]
-        }
+        responseMimeType: "application/json"
       }
     });
     text = response.text || "";

@@ -9,6 +9,7 @@ export interface TestScenario {
   priority: string;
   comments: string;
   providedBy: string;
+  [key: string]: any;
 }
 
 export interface TestCase {
@@ -26,6 +27,7 @@ export interface TestCase {
   priority: string;
   automatable: "Y" | "N";
   automationStatus: string;
+  [key: string]: any;
 }
 
 export interface GenerationResult {

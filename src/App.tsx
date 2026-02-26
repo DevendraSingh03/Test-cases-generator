@@ -230,9 +230,22 @@ export default function App() {
             try {
               const arrayBuffer = evt.target?.result as ArrayBuffer;
               const wb = XLSX.read(arrayBuffer, { type: 'array' });
-              const wsname = wb.SheetNames[0];
-              const ws = wb.Sheets[wsname];
-              resolve(XLSX.utils.sheet_to_csv(ws));
+              
+              let formatString = "Please generate the test design using the following columns/headers for each section:\n\n";
+              
+              for (const sheetName of wb.SheetNames) {
+                const ws = wb.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(ws, { header: 1 });
+                if (jsonData && jsonData.length > 0) {
+                  const firstRow = jsonData[0] as any[];
+                  const headers = firstRow.filter(h => h !== undefined && h !== null && String(h).trim() !== "");
+                  if (headers.length > 0) {
+                    formatString += `Sheet: ${sheetName}\nHeaders: ${headers.join(", ")}\n\n`;
+                  }
+                }
+              }
+              
+              resolve(formatString.trim());
             } catch (e) {
               reject(new Error("Failed to parse Excel file."));
             }
@@ -244,7 +257,14 @@ export default function App() {
       } else if (extension === 'csv') {
         Papa.parse(file, {
           complete: (results) => {
-            setCustomFormat(JSON.stringify(results.data, null, 2));
+            const data = results.data as any[];
+            if (data && data.length > 0) {
+              const firstRow = data[0] as any[];
+              const headers = firstRow.filter(h => h !== undefined && h !== null && String(h).trim() !== "");
+              setCustomFormat(`Please generate the test design using the following columns/headers:\n\nHeaders: ${headers.join(", ")}`);
+            } else {
+              setCustomFormat("");
+            }
           },
           error: (error) => {
             setError("Failed to parse CSV file: " + error.message);
