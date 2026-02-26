@@ -13,10 +13,10 @@ async function startServer() {
   app.use(express.json());
 
   // API for User Story Data
-  app.get("/api/jira/test", async (req, res) => {
-    const jiraApiToken = req.headers['x-jira-api-token'] as string;
-    let jiraDomain = req.headers['x-jira-domain'] as string;
-    const jiraEmail = req.headers['x-jira-email'] as string;
+  app.post("/api/jira/test", async (req, res) => {
+    const jiraApiToken = (req.body.apiToken || '').trim();
+    let jiraDomain = (req.body.domain || '').trim();
+    const jiraEmail = (req.body.email || '').trim();
 
     if (!jiraApiToken || !jiraDomain || !jiraEmail) {
       return res.status(400).json({ error: "Missing Jira credentials" });
@@ -40,6 +40,9 @@ async function startServer() {
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error(`401 Unauthorized: Invalid Jira Email or API Token. If using Jira Cloud, ensure you use an API Token (not your password). If using Jira Server/Data Center, this app currently uses Basic Auth which may require different configuration.`);
+        }
         throw new Error(`Jira API error: ${response.status} ${response.statusText}`);
       }
 
@@ -58,11 +61,11 @@ async function startServer() {
     }
   });
 
-  app.get("/api/user-story/:id", async (req, res) => {
+  app.post("/api/user-story/:id", async (req, res) => {
     const { id } = req.params;
-    const jiraApiToken = req.headers['x-jira-api-token'] as string;
-    let jiraDomain = req.headers['x-jira-domain'] as string;
-    const jiraEmail = req.headers['x-jira-email'] as string;
+    const jiraApiToken = (req.body.apiToken || '').trim();
+    let jiraDomain = (req.body.domain || '').trim();
+    const jiraEmail = (req.body.email || '').trim();
 
     if (jiraApiToken && jiraDomain && jiraEmail) {
       // Clean up domain (extract just the hostname if a full URL is provided)
@@ -83,6 +86,9 @@ async function startServer() {
         });
 
         if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error(`401 Unauthorized: Invalid Jira Email or API Token. If using Jira Cloud, ensure you use an API Token (not your password). If using Jira Server/Data Center, this app currently uses Basic Auth which may require different configuration.`);
+          }
           throw new Error(`Jira API error: ${response.status} ${response.statusText}`);
         }
 

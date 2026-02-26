@@ -115,17 +115,20 @@ export default function App() {
     setStoryDetails(null);
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json'
-      };
-
+      const bodyData: any = {};
       if (jiraConfig.apiToken && jiraConfig.domain && jiraConfig.email) {
-        headers['x-jira-api-token'] = jiraConfig.apiToken;
-        headers['x-jira-domain'] = jiraConfig.domain;
-        headers['x-jira-email'] = jiraConfig.email;
+        bodyData.apiToken = jiraConfig.apiToken;
+        bodyData.domain = jiraConfig.domain;
+        bodyData.email = jiraConfig.email;
       }
 
-      const res = await fetch(`/api/user-story/${jiraId}`, { headers });
+      const res = await fetch(`/api/user-story/${jiraId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(bodyData)
+      });
       
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
@@ -162,14 +165,17 @@ export default function App() {
     setJiraConnectionMessage("");
 
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        'x-jira-api-token': jiraConfig.apiToken,
-        'x-jira-domain': jiraConfig.domain,
-        'x-jira-email': jiraConfig.email
-      };
-
-      const res = await fetch(`/api/jira/test`, { headers });
+      const res = await fetch(`/api/jira/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          apiToken: jiraConfig.apiToken,
+          domain: jiraConfig.domain,
+          email: jiraConfig.email
+        })
+      });
       
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
@@ -352,17 +358,20 @@ export default function App() {
           version: fixVersion
         };
       } else if (!userStoryData || userStoryData.id !== jiraId) {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json'
-        };
-
+        const bodyData: any = {};
         if (jiraConfig.apiToken && jiraConfig.domain && jiraConfig.email) {
-          headers['x-jira-api-token'] = jiraConfig.apiToken;
-          headers['x-jira-domain'] = jiraConfig.domain;
-          headers['x-jira-email'] = jiraConfig.email;
+          bodyData.apiToken = jiraConfig.apiToken;
+          bodyData.domain = jiraConfig.domain;
+          bodyData.email = jiraConfig.email;
         }
 
-        const res = await fetch(`/api/user-story/${jiraId}`, { headers });
+        const res = await fetch(`/api/user-story/${jiraId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(bodyData)
+        });
         
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
