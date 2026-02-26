@@ -218,51 +218,68 @@ export default function App() {
   const handleFileUpload = async (e: any) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const target = e.target;
 
     const extension = file.name.split('.').pop()?.toLowerCase();
 
     try {
       if (extension === 'xlsx' || extension === 'xls') {
-        const reader = new FileReader();
-        reader.onload = (evt) => {
-          try {
-            const arrayBuffer = evt.target?.result as ArrayBuffer;
-            const wb = XLSX.read(arrayBuffer, { type: 'array' });
-            const wsname = wb.SheetNames[0];
-            const ws = wb.Sheets[wsname];
-            const data = XLSX.utils.sheet_to_csv(ws);
-            setCustomFormat(data);
-          } catch (e) {
-            setError("Failed to parse Excel file.");
-          }
-        };
-        reader.readAsArrayBuffer(file);
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            try {
+              const arrayBuffer = evt.target?.result as ArrayBuffer;
+              const wb = XLSX.read(arrayBuffer, { type: 'array' });
+              const wsname = wb.SheetNames[0];
+              const ws = wb.Sheets[wsname];
+              resolve(XLSX.utils.sheet_to_csv(ws));
+            } catch (e) {
+              reject(new Error("Failed to parse Excel file."));
+            }
+          };
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsArrayBuffer(file);
+        });
+        setCustomFormat(data as string);
       } else if (extension === 'csv') {
         Papa.parse(file, {
           complete: (results) => {
             setCustomFormat(JSON.stringify(results.data, null, 2));
+          },
+          error: (error) => {
+            setError("Failed to parse CSV file: " + error.message);
           }
         });
       } else if (extension === 'docx') {
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-          const arrayBuffer = evt.target?.result as ArrayBuffer;
-          const result = await mammoth.extractRawText({ arrayBuffer });
-          setCustomFormat(result.value);
-        };
-        reader.readAsArrayBuffer(file);
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = async (evt) => {
+            try {
+              const arrayBuffer = evt.target?.result as ArrayBuffer;
+              const result = await mammoth.extractRawText({ arrayBuffer });
+              resolve(result.value);
+            } catch (e) {
+              reject(new Error("Failed to parse Word document."));
+            }
+          };
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsArrayBuffer(file);
+        });
+        setCustomFormat(data as string);
       } else {
-        const reader = new FileReader();
-        reader.onload = (re) => {
-          setCustomFormat(re.target?.result as string);
-        };
-        reader.readAsText(file);
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (re) => resolve(re.target?.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsText(file);
+        });
+        setCustomFormat(data as string);
       }
-    } catch (err) {
-      setError("Failed to parse file. Please try a different format.");
+    } catch (err: any) {
+      setError(err.message || "Failed to parse file. Please try a different format.");
     } finally {
       // Reset input so the same file can be uploaded again if needed
-      e.target.value = '';
+      target.value = '';
     }
   };
 
@@ -1199,6 +1216,29 @@ export default function App() {
                           )}
                         </button>
                       </div>
+
+                      <AnimatePresence>
+                        {jiraConnectionStatus !== "idle" && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            className={cn(
+                              "p-4 rounded-xl border flex items-center gap-3 text-sm",
+                              jiraConnectionStatus === "success" 
+                                ? "bg-emerald-50 border-emerald-100 text-emerald-700" 
+                                : "bg-red-50 border-red-100 text-red-700"
+                            )}
+                          >
+                            {jiraConnectionStatus === "success" ? (
+                              <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-500" />
+                            ) : (
+                              <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+                            )}
+                            <span className="font-medium">{jiraConnectionMessage}</span>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 )}
