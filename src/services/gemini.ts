@@ -201,6 +201,55 @@ export async function generateTestDesign(
 
     const data = await response.json();
     text = data.content[0].text;
+  } else if (effectiveProvider === "Cohere") {
+    if (!effectiveApiKey) throw new Error("Cohere API Key is missing");
+
+    const response = await fetch("https://api.cohere.com/v1/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${effectiveApiKey}`
+      },
+      body: JSON.stringify({
+        model: "command-r-plus",
+        message: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text.",
+        temperature: 0.3
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Cohere Error: ${error.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    text = data.text;
+  } else if (effectiveProvider === "HuggingFace") {
+    if (!effectiveApiKey) throw new Error("Hugging Face API Key is missing");
+
+    const response = await fetch("https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${effectiveApiKey}`
+      },
+      body: JSON.stringify({
+        model: "meta-llama/Meta-Llama-3-8B-Instruct",
+        messages: [
+          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "user", content: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text." }
+        ],
+        max_tokens: 4096
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`Hugging Face Error: ${error.error || response.statusText}`);
+    }
+
+    const data = await response.json();
+    text = data.choices[0].message.content;
   }
 
   if (!text) throw new Error("Failed to generate content from AI provider");

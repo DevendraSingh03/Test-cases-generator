@@ -51,6 +51,8 @@ export interface AIConfig {
   geminiKey: string;
   openaiKey: string;
   anthropicKey: string;
+  cohereKey?: string;
+  huggingFaceKey?: string;
   customProviders: CustomProvider[];
 }
 

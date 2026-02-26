@@ -96,6 +96,9 @@ export default function App() {
   const [suggestingFormat, setSuggestingFormat] = useState(false);
   const [suggestedFormats, setSuggestedFormats] = useState<{name: string, content: string}[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isConnectingJira, setIsConnectingJira] = useState(false);
+  const [jiraConnectionStatus, setJiraConnectionStatus] = useState<"idle" | "success" | "error">("idle");
+  const [jiraConnectionMessage, setJiraConnectionMessage] = useState("");
 
   useEffect(() => {
     document.documentElement.style.setProperty('--accent-color', accentColor);
@@ -136,6 +139,47 @@ export default function App() {
       setError(err.message || "Failed to fetch story details");
     } finally {
       setFetchingDetails(false);
+    }
+  };
+
+  const handleConnectJira = async () => {
+    if (!jiraConfig.apiToken || !jiraConfig.domain || !jiraConfig.email) {
+      setJiraConnectionStatus("error");
+      setJiraConnectionMessage("Please fill in all Jira credentials.");
+      return;
+    }
+
+    setIsConnectingJira(true);
+    setJiraConnectionStatus("idle");
+    setJiraConnectionMessage("");
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'x-jira-api-token': jiraConfig.apiToken,
+        'x-jira-domain': jiraConfig.domain,
+        'x-jira-email': jiraConfig.email
+      };
+
+      const res = await fetch(`/api/jira/test`, { headers });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to connect to Jira");
+      }
+
+      setJiraConnectionStatus("success");
+      setJiraConnectionMessage(`Successfully connected as ${data.user}`);
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setJiraConnectionStatus("idle");
+      }, 3000);
+    } catch (err: any) {
+      setJiraConnectionStatus("error");
+      setJiraConnectionMessage(err.message || "Connection failed");
+    } finally {
+      setIsConnectingJira(false);
     }
   };
 
@@ -181,14 +225,18 @@ export default function App() {
       if (extension === 'xlsx' || extension === 'xls') {
         const reader = new FileReader();
         reader.onload = (evt) => {
-          const bstr = evt.target?.result;
-          const wb = XLSX.read(bstr, { type: 'binary' });
-          const wsname = wb.SheetNames[0];
-          const ws = wb.Sheets[wsname];
-          const data = XLSX.utils.sheet_to_csv(ws);
-          setCustomFormat(data);
+          try {
+            const arrayBuffer = evt.target?.result as ArrayBuffer;
+            const wb = XLSX.read(arrayBuffer, { type: 'array' });
+            const wsname = wb.SheetNames[0];
+            const ws = wb.Sheets[wsname];
+            const data = XLSX.utils.sheet_to_csv(ws);
+            setCustomFormat(data);
+          } catch (e) {
+            setError("Failed to parse Excel file.");
+          }
         };
-        reader.readAsBinaryString(file);
+        reader.readAsArrayBuffer(file);
       } else if (extension === 'csv') {
         Papa.parse(file, {
           complete: (results) => {
@@ -212,6 +260,9 @@ export default function App() {
       }
     } catch (err) {
       setError("Failed to parse file. Please try a different format.");
+    } finally {
+      // Reset input so the same file can be uploaded again if needed
+      e.target.value = '';
     }
   };
 
@@ -1127,6 +1178,27 @@ export default function App() {
                           />
                         </div>
                       </div>
+
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleConnectJira}
+                          disabled={isConnectingJira}
+                          className="w-full py-4 rounded-2xl bg-zinc-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-zinc-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {isConnectingJira ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="w-4 h-4" />
+                              Connect to Jira
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1147,7 +1219,7 @@ export default function App() {
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {(["Gemini", "OpenAI", "Anthropic"] as const).map((p) => (
+                          {(["Gemini", "OpenAI", "Anthropic", "Cohere", "HuggingFace"] as const).map((p) => (
                             <button
                               key={p}
                               onClick={() => setAiConfig({ ...aiConfig, provider: p })}
@@ -1261,6 +1333,50 @@ export default function App() {
                           </motion.div>
                         )}
 
+                        {aiConfig.provider === "Cohere" && (
+                          <motion.div 
+                            key="cohere-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Cohere API Key</label>
+                            <div className="relative group">
+                              <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="Enter Cohere API Key"
+                                value={aiConfig.cohereKey || ""}
+                                onChange={(e) => setAiConfig({ ...aiConfig, cohereKey: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {aiConfig.provider === "HuggingFace" && (
+                          <motion.div 
+                            key="huggingface-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-2"
+                          >
+                            <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Hugging Face API Key</label>
+                            <div className="relative group">
+                              <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                              <input 
+                                type="password"
+                                placeholder="hf_••••••••••••••••"
+                                value={aiConfig.huggingFaceKey || ""}
+                                onChange={(e) => setAiConfig({ ...aiConfig, huggingFaceKey: e.target.value })}
+                                className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+
                         {aiConfig.customProviders.find(cp => cp.id === aiConfig.provider) && (
                           <motion.div 
                             key={`custom-${aiConfig.provider}`}
@@ -1324,6 +1440,8 @@ export default function App() {
                                 <option value="OpenAI">OpenAI Compatible</option>
                                 <option value="Anthropic">Anthropic Compatible</option>
                                 <option value="Gemini">Gemini Compatible</option>
+                                <option value="Cohere">Cohere Compatible</option>
+                                <option value="HuggingFace">Hugging Face Compatible</option>
                               </select>
                             </div>
                           </div>

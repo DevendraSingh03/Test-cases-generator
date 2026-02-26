@@ -13,16 +13,69 @@ async function startServer() {
   app.use(express.json());
 
   // API for User Story Data
+  app.get("/api/jira/test", async (req, res) => {
+    const jiraApiToken = req.headers['x-jira-api-token'] as string;
+    let jiraDomain = req.headers['x-jira-domain'] as string;
+    const jiraEmail = req.headers['x-jira-email'] as string;
+
+    if (!jiraApiToken || !jiraDomain || !jiraEmail) {
+      return res.status(400).json({ error: "Missing Jira credentials" });
+    }
+
+    // Clean up domain (extract just the hostname if a full URL is provided)
+    try {
+      const url = new URL(jiraDomain.includes('://') ? jiraDomain : `https://${jiraDomain}`);
+      jiraDomain = url.hostname;
+    } catch (e) {
+      jiraDomain = jiraDomain.replace(/^https?:\/\//, '').split('/')[0];
+    }
+
+    try {
+      const auth = Buffer.from(`${jiraEmail}:${jiraApiToken}`).toString('base64');
+      const response = await fetch(`https://${jiraDomain}/rest/api/2/myself`, {
+        headers: {
+          'Authorization': `Basic ${auth}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Jira API error: ${response.status} ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        const snippet = text.substring(0, 100).replace(/\n/g, ' ');
+        throw new Error(`Received non-JSON response from ${jiraDomain}. This usually means the domain is incorrect, requires VPN/SSO, or is an on-premise instance. Response snippet: ${snippet}...`);
+      }
+
+      const data = await response.json();
+      res.json({ success: true, user: data.displayName });
+    } catch (error: any) {
+      console.error("Jira Test Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/user-story/:id", async (req, res) => {
     const { id } = req.params;
     const jiraApiToken = req.headers['x-jira-api-token'] as string;
-    const jiraDomain = req.headers['x-jira-domain'] as string;
+    let jiraDomain = req.headers['x-jira-domain'] as string;
     const jiraEmail = req.headers['x-jira-email'] as string;
 
     if (jiraApiToken && jiraDomain && jiraEmail) {
+      // Clean up domain (extract just the hostname if a full URL is provided)
+      try {
+        const url = new URL(jiraDomain.includes('://') ? jiraDomain : `https://${jiraDomain}`);
+        jiraDomain = url.hostname;
+      } catch (e) {
+        jiraDomain = jiraDomain.replace(/^https?:\/\//, '').split('/')[0];
+      }
+
       try {
         const auth = Buffer.from(`${jiraEmail}:${jiraApiToken}`).toString('base64');
-        const response = await fetch(`https://${jiraDomain}/rest/api/3/issue/${id}`, {
+        const response = await fetch(`https://${jiraDomain}/rest/api/2/issue/${id}`, {
           headers: {
             'Authorization': `Basic ${auth}`,
             'Accept': 'application/json'
@@ -30,16 +83,29 @@ async function startServer() {
         });
 
         if (!response.ok) {
-          throw new Error(`Jira API error: ${response.statusText}`);
+          throw new Error(`Jira API error: ${response.status} ${response.statusText}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await response.text();
+          const snippet = text.substring(0, 100).replace(/\n/g, ' ');
+          throw new Error(`Received non-JSON response from ${jiraDomain}. This usually means the domain is incorrect, requires VPN/SSO, or is an on-premise instance. Response snippet: ${snippet}...`);
         }
 
         const data: any = await response.json();
         
         // Extract relevant fields from Jira response
+        // Note: Jira v2 API description is usually a string, unlike v3 which is Atlassian Document Format
+        let description = data.fields.description || "No description provided";
+        if (typeof description === 'object' && description.content) {
+          description = description.content.map((c: any) => (c.content || []).map((inner: any) => inner.text || "").join('')).join('\n');
+        }
+
         res.json({
           id: data.key,
           title: data.fields.summary,
-          description: data.fields.description?.content?.map((c: any) => (c.content || []).map((inner: any) => inner.text || "").join('')).join('\n') || data.fields.description || "No description provided",
+          description: description,
           acceptanceCriteria: [
             "Acceptance criteria fetched from Jira",
             ...(data.fields.customfield_10016 || []) // Example custom field for AC
