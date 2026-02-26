@@ -126,6 +126,14 @@ export default function App() {
       }
 
       const res = await fetch(`/api/user-story/${jiraId}`, { headers });
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response from server:", text.substring(0, 200));
+        throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+      }
+
       if (!res.ok) {
         const errData = await res.json();
         throw new Error(errData.error || "Failed to fetch user story data");
@@ -162,6 +170,14 @@ export default function App() {
       };
 
       const res = await fetch(`/api/jira/test`, { headers });
+      
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        console.error("Non-JSON response from server:", text.substring(0, 200));
+        throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+      }
+
       const data = await res.json();
 
       if (!res.ok || !data.success) {
@@ -347,6 +363,14 @@ export default function App() {
         }
 
         const res = await fetch(`/api/user-story/${jiraId}`, { headers });
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          const text = await res.text();
+          console.error("Non-JSON response from server:", text.substring(0, 200));
+          throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+        }
+
         if (!res.ok) {
           const errData = await res.json();
           throw new Error(errData.error || "Failed to fetch user story data");
