@@ -133,8 +133,8 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response from server:", text.substring(0, 200));
-        throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+        console.error("Non-JSON response from server:", res.status, res.statusText, text.substring(0, 500));
+        throw new Error(`The server is not responding correctly (Status: ${res.status}). If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration. Response snippet: ${text.substring(0, 100)}`);
       }
 
       if (!res.ok) {
@@ -180,8 +180,8 @@ export default function App() {
       const contentType = res.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await res.text();
-        console.error("Non-JSON response from server:", text.substring(0, 200));
-        throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+        console.error("Non-JSON response from server:", res.status, res.statusText, text.substring(0, 500));
+        throw new Error(`The server is not responding correctly (Status: ${res.status}). If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration. Response snippet: ${text.substring(0, 100)}`);
       }
 
       const data = await res.json();
@@ -376,8 +376,8 @@ export default function App() {
         const contentType = res.headers.get("content-type");
         if (!contentType || !contentType.includes("application/json")) {
           const text = await res.text();
-          console.error("Non-JSON response from server:", text.substring(0, 200));
-          throw new Error("The server is not responding correctly. If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration.");
+          console.error("Non-JSON response from server:", res.status, res.statusText, text.substring(0, 500));
+          throw new Error(`The server is not responding correctly (Status: ${res.status}). If you deployed this app as a static site, the backend API proxy is missing. You must deploy it as a Node.js full-stack app to use the Jira integration. Response snippet: ${text.substring(0, 100)}`);
         }
 
         if (!res.ok) {
@@ -464,7 +464,7 @@ export default function App() {
           <div className="h-8 w-px bg-zinc-200"></div>
           
           <div className="flex flex-col items-end">
-            <span className="text-[8px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Active Mode</span>
+            <span className="text-[8px] uppercase tracking-[0.2em] text-zinc-400 font-black mb-1">Active Mode v1.1</span>
             <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-50 border border-zinc-100">
               <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: accentColor }}></div>
               <span className="text-[9px] font-black uppercase tracking-widest text-zinc-600">{genMode}</span>

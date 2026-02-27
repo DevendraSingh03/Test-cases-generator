@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -8,15 +7,22 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
+  // Logging middleware
+  app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+  });
+
   // API for User Story Data
   app.post("/api/jira/test", async (req, res) => {
-    const jiraApiToken = (req.body.apiToken || '').trim();
-    let jiraDomain = (req.body.domain || '').trim();
-    const jiraEmail = (req.body.email || '').trim();
+    console.log("Received request to /api/jira/test");
+    const jiraApiToken = (req.body?.apiToken || '').trim();
+    let jiraDomain = (req.body?.domain || '').trim();
+    const jiraEmail = (req.body?.email || '').trim();
 
     if (!jiraApiToken || !jiraDomain || !jiraEmail) {
       return res.status(400).json({ error: "Missing Jira credentials" });
@@ -63,9 +69,9 @@ async function startServer() {
 
   app.post("/api/user-story/:id", async (req, res) => {
     const { id } = req.params;
-    const jiraApiToken = (req.body.apiToken || '').trim();
-    let jiraDomain = (req.body.domain || '').trim();
-    const jiraEmail = (req.body.email || '').trim();
+    const jiraApiToken = (req.body?.apiToken || '').trim();
+    let jiraDomain = (req.body?.domain || '').trim();
+    const jiraEmail = (req.body?.email || '').trim();
 
     if (jiraApiToken && jiraDomain && jiraEmail) {
       // Clean up domain (extract just the hostname if a full URL is provided)
@@ -146,6 +152,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -158,9 +165,11 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT as number, "0.0.0.0", () => {
+    console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
 }
 
-startServer();
+startServer().catch(err => {
+  console.error("Failed to start server:", err);
+});
