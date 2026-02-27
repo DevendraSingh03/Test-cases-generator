@@ -17,7 +17,8 @@ export async function generateTestDesign(
   const effectiveApiKey = customProvider ? customProvider.apiKey : (
     providerId === "Gemini" ? (aiConfig?.geminiKey || process.env.GEMINI_API_KEY || "") :
     providerId === "OpenAI" ? aiConfig?.openaiKey :
-    providerId === "Anthropic" ? aiConfig?.anthropicKey : ""
+    providerId === "Anthropic" ? aiConfig?.anthropicKey : 
+    providerId === "OpenRouter" ? aiConfig?.openRouterKey : ""
   );
 
   let modeInstruction = "";
@@ -206,6 +207,33 @@ export async function generateTestDesign(
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Hugging Face Error: ${error.error || response.statusText}`);
+    }
+
+    const data = await response.json();
+    text = data.choices[0].message.content;
+  } else if (effectiveProvider === "OpenRouter") {
+    if (!effectiveApiKey) throw new Error("OpenRouter API Key is missing");
+    const model = aiConfig?.openRouterModel || "openai/gpt-3.5-turbo";
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${effectiveApiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "user", content: prompt }
+        ],
+        response_format: { type: "json_object" }
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(`OpenRouter Error: ${error.error?.message || response.statusText}`);
     }
 
     const data = await response.json();

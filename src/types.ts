@@ -55,6 +55,9 @@ export interface AIConfig {
   anthropicKey: string;
   cohereKey?: string;
   huggingFaceKey?: string;
+  openRouterKey?: string;
+  openRouterModel?: string;
+  openRouterSystemPrompt?: string;
   customProviders: CustomProvider[];
 }
 

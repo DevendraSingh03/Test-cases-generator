@@ -87,6 +87,8 @@ export default function App() {
     geminiKey: "",
     openaiKey: "",
     anthropicKey: "",
+    openRouterKey: "",
+    openRouterModel: "openai/gpt-3.5-turbo",
     customProviders: []
   });
   const [newProviderName, setNewProviderName] = useState("");
@@ -1312,7 +1314,7 @@ export default function App() {
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {(["Gemini", "OpenAI", "Anthropic", "Cohere", "HuggingFace"] as const).map((p) => (
+                          {(["Gemini", "OpenAI", "Anthropic", "OpenRouter", "Cohere", "HuggingFace"] as const).map((p) => (
                             <button
                               key={p}
                               onClick={() => setAiConfig({ ...aiConfig, provider: p })}
@@ -1360,7 +1362,44 @@ export default function App() {
                       <div className="h-px bg-zinc-100 my-2"></div>
 
                       <AnimatePresence mode="wait">
-                        {aiConfig.provider === "Gemini" && (
+                        {aiConfig.provider === "OpenRouter" && (
+                          <motion.div 
+                            key="openrouter-input"
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="space-y-4"
+                          >
+                            <div className="space-y-2">
+                              <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">OpenRouter API Key</label>
+                              <div className="relative group">
+                                <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                                <input 
+                                  type="password"
+                                  placeholder="sk-or-v1-..."
+                                  value={aiConfig.openRouterKey}
+                                  onChange={(e) => setAiConfig({ ...aiConfig, openRouterKey: e.target.value })}
+                                  className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all"
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[9px] uppercase tracking-widest text-zinc-500 font-bold ml-1">Model Name</label>
+                              <div className="relative group">
+                                <Cpu className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-300 group-focus-within:text-zinc-500 transition-colors" />
+                                <input 
+                                  type="text"
+                                  placeholder="openai/gpt-3.5-turbo"
+                                  value={aiConfig.openRouterModel}
+                                  onChange={(e) => setAiConfig({ ...aiConfig, openRouterModel: e.target.value })}
+                                  className="w-full pl-12 pr-4 py-4 bg-zinc-50 border border-zinc-100 rounded-2xl text-sm text-zinc-900 placeholder:text-zinc-300 focus:outline-none focus:border-zinc-300 transition-all font-mono"
+                                />
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+
+                      {aiConfig.provider === "Gemini" && (
                           <motion.div 
                             key="gemini-input"
                             initial={{ opacity: 0, x: -10 }}
