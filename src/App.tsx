@@ -255,7 +255,7 @@ export default function App() {
               const arrayBuffer = evt.target?.result as ArrayBuffer;
               const wb = XLSX.read(arrayBuffer, { type: 'array' });
               
-              let formatString = "Please generate the test design using the following columns/headers for each section:\n\n";
+              let formatString = "Please generate the test design using the following structure/headers derived from the uploaded file:\n\n";
               
               for (const sheetName of wb.SheetNames) {
                 const ws = wb.Sheets[sheetName];
@@ -264,7 +264,12 @@ export default function App() {
                   const firstRow = jsonData[0] as any[];
                   const headers = firstRow.filter(h => h !== undefined && h !== null && String(h).trim() !== "");
                   if (headers.length > 0) {
-                    formatString += `Sheet: ${sheetName}\nHeaders: ${headers.join(", ")}\n\n`;
+                    formatString += `Sheet: ${sheetName}\nHeaders: ${headers.join(", ")}\n`;
+                    if (jsonData.length > 1) {
+                      const sampleRow = (jsonData[1] as any[]).filter(v => v !== undefined && v !== null);
+                      formatString += `Sample Values: ${sampleRow.join(", ")}\n`;
+                    }
+                    formatString += "\n";
                   }
                 }
               }
@@ -285,7 +290,12 @@ export default function App() {
             if (data && data.length > 0) {
               const firstRow = data[0] as any[];
               const headers = firstRow.filter(h => h !== undefined && h !== null && String(h).trim() !== "");
-              setCustomFormat(`Please generate the test design using the following columns/headers:\n\nHeaders: ${headers.join(", ")}`);
+              let formatStr = `Please generate the test design using the following columns/headers:\n\nHeaders: ${headers.join(", ")}`;
+              if (data.length > 1) {
+                const sampleRow = (data[1] as any[]).filter(v => v !== undefined && v !== null);
+                formatStr += `\nSample Values: ${sampleRow.join(", ")}`;
+              }
+              setCustomFormat(formatStr);
             } else {
               setCustomFormat("");
             }
@@ -294,6 +304,22 @@ export default function App() {
             setError("Failed to parse CSV file: " + error.message);
           }
         });
+      } else if (extension === 'json') {
+        const data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = (re) => {
+            try {
+              const content = re.target?.result as string;
+              const parsed = JSON.parse(content);
+              resolve(JSON.stringify(parsed, null, 2));
+            } catch (e) {
+              resolve(re.target?.result as string);
+            }
+          };
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsText(file);
+        });
+        setCustomFormat(data as string);
       } else if (extension === 'docx') {
         const data = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -396,7 +422,7 @@ export default function App() {
         userStoryData,
         genMode,
         aiConfig,
-        customFormat
+        designBy === "Custom Format" ? customFormat : undefined
       );
 
       setResult(generationResult);
@@ -1016,7 +1042,7 @@ export default function App() {
                                     </td>
                                     <td className="px-4 py-5 align-top">
                                       <p className="text-sm text-zinc-600 leading-relaxed max-w-md">
-                                        {steps[idx] || "-"}
+                                        {steps[idx] ? `${idx + 1}. ${steps[idx]}` : "-"}
                                       </p>
                                     </td>
                                     <td className="px-10 py-5 align-top">
@@ -1026,7 +1052,7 @@ export default function App() {
                                           "text-sm leading-relaxed",
                                           results[idx] ? "text-zinc-900 font-medium" : "text-zinc-400 italic"
                                         )}>
-                                          {results[idx] || "No specific outcome defined"}
+                                          {results[idx] ? `${idx + 1}. ${results[idx]}` : "No specific outcome defined"}
                                         </p>
                                       </div>
                                     </td>
