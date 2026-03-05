@@ -90,6 +90,17 @@ export async function generateTestDesign(
     The "testCases" array must contain objects with AT LEAST these keys:
     "sNo", "folder", "userStory", "testId", "name", "objective", "precondition", "testSteps", "expectedResult", "postCondition", "classification", "priority", "automatable" (must be "Y" or "N"), "automationStatus"
 
+    IMPORTANT: "testSteps" and "expectedResult" MUST be arrays of strings. Each element in "testSteps" should have a corresponding element in "expectedResult" at the same index.
+    
+    Example structure for a test case:
+    {
+      "testId": "TC-001",
+      "name": "Verify Login",
+      "testSteps": ["Enter username", "Enter password", "Click login"],
+      "expectedResult": ["Username entered", "Password masked", "Dashboard displayed"],
+      ...
+    }
+
     If a CUSTOM OUTPUT FORMAT was provided above, you MUST ALSO include every custom field requested as an additional key in the JSON objects.
   `;
 
@@ -121,7 +132,7 @@ export async function generateTestDesign(
       body: JSON.stringify({
         model: "gpt-4o",
         messages: [
-          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "system", content: "You are an expert QA Engineer. Your task is to generate comprehensive test designs in a strict JSON format. Ensure all fields, especially 'testSteps' and 'expectedResult', are populated as arrays of strings." },
           { role: "user", content: prompt }
         ],
         response_format: { type: "json_object" }
@@ -149,6 +160,7 @@ export async function generateTestDesign(
       body: JSON.stringify({
         model: "claude-3-5-sonnet-20240620",
         max_tokens: 4096,
+        system: "You are an expert QA Engineer. Your task is to generate comprehensive test designs in a strict JSON format. Ensure all fields, especially 'testSteps' and 'expectedResult', are populated as arrays of strings.",
         messages: [
           { role: "user", content: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text." }
         ]
@@ -173,7 +185,7 @@ export async function generateTestDesign(
       },
       body: JSON.stringify({
         model: "command-r-plus",
-        message: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text.",
+        message: prompt + "\n\nIMPORTANT: You are an expert QA Engineer. Return ONLY a valid JSON object. Ensure 'testSteps' and 'expectedResult' are arrays of strings.",
         temperature: 0.3
       })
     });
@@ -197,7 +209,7 @@ export async function generateTestDesign(
       body: JSON.stringify({
         model: "meta-llama/Meta-Llama-3-8B-Instruct",
         messages: [
-          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "system", content: "You are an expert QA Engineer. Your task is to generate comprehensive test designs in a strict JSON format. Ensure all fields, especially 'testSteps' and 'expectedResult', are populated as arrays of strings." },
           { role: "user", content: prompt + "\n\nIMPORTANT: Return ONLY the JSON object, no other text." }
         ],
         max_tokens: 4096
@@ -224,7 +236,7 @@ export async function generateTestDesign(
       body: JSON.stringify({
         model: model,
         messages: [
-          { role: "system", content: "You are an expert QA Engineer. Always respond with valid JSON." },
+          { role: "system", content: "You are an expert QA Engineer. Your task is to generate comprehensive test designs in a strict JSON format. Ensure all fields, especially 'testSteps' and 'expectedResult', are populated as arrays of strings." },
           { role: "user", content: prompt }
         ],
         response_format: { type: "json_object" }
